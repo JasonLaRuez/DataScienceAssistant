@@ -1,0 +1,33 @@
+# --- Project data and run artifacts (rule 7: never commit data) ---
+data/
+runs/
+
+# Exploratory figures are disposable; only figures the write-up references are
+# committed, and those live in reports/figures/.
+reports/scratch/
+
+# --- Credentials ---
+.env
+*.pem
+kaggle.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# --- Environments ---
+.venv/
+venv/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- OS / editor ---
+Thumbs.db
+.DS_Store
+.vscode/settings.json
