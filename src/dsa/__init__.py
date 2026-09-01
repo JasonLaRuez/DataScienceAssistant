@@ -29,16 +29,7 @@ from dsa.io import (
     read_table,
     table_format,
 )
-from dsa.clean import (
-    Plan,
-    Proposal,
-    approve,
-    preprocessor,
-    propose,
-    treatments,
-)
 from dsa.io.kaggle import load_file, load_kaggle
-from dsa.profile import ColumnProfile, DataProfile, profile, profile_frame
 from dsa.runlog import RunEntry, RunLog, environment_snapshot
 from dsa.session import Session, find_project_root, new_session
 
@@ -71,15 +62,4 @@ __all__ = [
     "table_format",
     "credential_source",
     "CredentialsMissing",
-    # profiling and cleaning (step 2)
-    "profile",
-    "profile_frame",
-    "DataProfile",
-    "ColumnProfile",
-    "propose",
-    "approve",
-    "preprocessor",
-    "treatments",
-    "Plan",
-    "Proposal",
 ]

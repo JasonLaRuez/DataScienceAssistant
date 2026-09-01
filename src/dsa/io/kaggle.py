@@ -67,21 +67,15 @@ def require_credentials() -> str:
     )
 
 
-def fetch(slug: str, cache_dir: Path) -> Path:
+def fetch(slug: str) -> Path:
     """Download a Kaggle dataset and return the local directory holding it.
-
-    The cache is kept inside the project (``data/``, gitignored) rather than the user's
-    home directory, so a run's inputs sit alongside its outputs and the project stays
-    self-contained. kagglehub reads this variable on every call, so setting it here is
-    reliable; it is set rather than passed because kagglehub exposes no argument for it.
 
     kagglehub caches, so re-running this after answering a gate costs nothing.
     """
     import kagglehub  # imported lazily: loading the toolkit should not require network code
 
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    os.environ["KAGGLEHUB_CACHE"] = str(cache_dir)
     return Path(kagglehub.dataset_download(slug))
+
 
 def load_kaggle(session: Session, slug: str, file: str | None = None) -> Session:
     """Fetch a Kaggle dataset into the session (step 1).
@@ -93,7 +87,7 @@ def load_kaggle(session: Session, slug: str, file: str | None = None) -> Session
     source = require_credentials()
 
     with session.log.record(STEP, "load.fetch", {"slug": slug, "auth_source": source}) as rec:
-        directory = fetch(slug, session.project_root / "data")
+        directory = fetch(slug)
         rec.notes = f"cached at {directory}"
 
     candidates = find_tables(directory)

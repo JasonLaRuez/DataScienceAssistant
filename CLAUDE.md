@@ -46,12 +46,8 @@ to disk immediately so a kernel crash loses nothing. The step-7 write-up is rend
 that log, never from recollection.
 
 ### 7. Never commit data or credentials
-`data/` and `runs/` are gitignored; the kagglehub cache is pointed at `data/` so a
-project stays self-contained. Kaggle credentials live outside the repository -- a
-`KAGGLE_API_TOKEN` environment variable for modern `KGAT_` tokens, or the classic
-`KAGGLE_USERNAME`/`KAGGLE_KEY` pair or `~/.kaggle/kaggle.json`. Code asks only *which*
-mechanism is configured and never reads the value; the RunLog redacts parameter names
-matching `token|secret|password|credential|api_key`.
+`data/` and `runs/` are gitignored. Kaggle credentials live in `~/.kaggle/kaggle.json`,
+outside the repository, and are never read into the RunLog or printed.
 
 ### 8. Stop at gates
 Never infer the target column, the task type, or whether group-aware splitting is needed.
