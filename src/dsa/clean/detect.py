@@ -13,9 +13,8 @@ import warnings
 import pandas as pd
 from pandas.api import types as pdt
 
-from dsa.clean.plan import REPAIR, TRANSFORM, Plan, Proposal
-from dsa.clean.repairs import build_repair
-from dsa.profile import CATEGORICAL, DATETIME, NUMERIC, DataProfile, profile_frame
+from dsa.clean.plan import REPAIR, TRANSFORM, Proposal
+from dsa.profile import CATEGORICAL, DATETIME, NUMERIC, DataProfile
 
 # A string column is worth coercing only if nearly all of it parses. Below this, the
 # failures are the story and coercing would quietly manufacture nulls.
@@ -77,30 +76,7 @@ def _looks_like_a_date(series: pd.Series) -> bool:
     return rate >= COERCE_THRESHOLD
 
 
-def detect(frame: pd.DataFrame, profile: DataProfile, target: str | None = None) -> Plan:
-    """Build the full set of proposals for a frame.
-
-    Detection runs in two phases, because the two tiers disagree about what the data is.
-    A string column proposed for coercion to numeric is *not* a high-cardinality
-    categorical column, even though that is exactly what it looks like right now. So the
-    proposed repairs are applied to a throwaway copy, the result is re-profiled, and
-    transforms are detected against that hypothetical frame.
-
-    The consequence, and it is a real one: rejecting a repair invalidates the transforms
-    that were derived assuming it. Re-run ``propose`` after dropping a repair.
-    """
-    repairs = _detect_repairs(frame, profile, target)
-
-    hypothetical = frame
-    for proposal in repairs:
-        _name, repair = build_repair(proposal)
-        hypothetical = repair(hypothetical)
-
-    transforms = _detect_transforms(profile_frame(hypothetical), target)
-    return Plan(repairs=tuple(repairs), transforms=tuple(transforms))
-
-
-def _detect_repairs(
+def detect_repairs(
     frame: pd.DataFrame, profile: DataProfile, target: str | None
 ) -> list[Proposal]:
     """Tier 1: deterministic fixes, argued from the frame as it stands."""
@@ -281,10 +257,13 @@ def _detect_repairs(
     return repairs
 
 
-def _detect_transforms(profile: DataProfile, target: str | None) -> list[Proposal]:
-    """Tier 2: learned preprocessing, argued from the frame *as it will be* after repairs.
+def detect_transforms(profile: DataProfile, target: str | None) -> list[Proposal]:
+    """Tier 2: learned preprocessing, argued from ``profile``.
 
-    Specified, never applied. Each of these becomes an unfitted pipeline step.
+    Called only after repairs are approved and applied (see
+    :func:`dsa.clean.proposals.propose_transforms`), so ``profile`` always reflects the
+    frame as it actually is, not a hypothetical one. Specified, never applied -- each of
+    these becomes an unfitted pipeline step.
     """
     transforms: list[Proposal] = []
     counter = {"T": 0}

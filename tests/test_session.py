@@ -79,7 +79,8 @@ def test_summary_reports_open_gates(session):
 
 def test_plan_and_transforms_default_to_unset(session):
     """A fresh session has no cleaning plan proposed and nothing approved yet."""
-    assert session.plan is None
+    assert session.repair_plan is None
+    assert session.transform_plan is None
     assert session.transforms == ()
 
 

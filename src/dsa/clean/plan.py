@@ -41,45 +41,68 @@ class Proposal:
 
 
 @dataclass(frozen=True)
-class Plan:
-    """A full set of proposals, split by tier."""
+class RepairPlan:
+    """A set of tier-1 repair proposals, argued from the working frame as it stands."""
 
     repairs: tuple[Proposal, ...] = ()
-    transforms: tuple[Proposal, ...] = ()
 
     def __getitem__(self, proposal_id: str) -> Proposal:
-        for proposal in (*self.repairs, *self.transforms):
+        for proposal in self.repairs:
             if proposal.id == proposal_id:
                 return proposal
         raise KeyError(proposal_id)
 
     @property
     def ids(self) -> tuple[str, ...]:
-        return tuple(p.id for p in (*self.repairs, *self.transforms))
+        return tuple(p.id for p in self.repairs)
 
-    def without(self, dropped: tuple[str, ...]) -> "Plan":
+    def without(self, dropped: tuple[str, ...]) -> "RepairPlan":
         """A copy with the named proposals removed, for approving a subset."""
         unknown = set(dropped) - set(self.ids)
         if unknown:
             raise KeyError(f"no such proposal(s): {sorted(unknown)}; plan has {self.ids}")
-        return Plan(
-            repairs=tuple(p for p in self.repairs if p.id not in dropped),
-            transforms=tuple(p for p in self.transforms if p.id not in dropped),
-        )
+        return RepairPlan(repairs=tuple(p for p in self.repairs if p.id not in dropped))
 
     def describe(self) -> str:
-        if not self.repairs and not self.transforms:
-            return "No changes proposed: nothing detected that needs repair or preprocessing."
+        if not self.repairs:
+            return "No repairs proposed: nothing detected that needs fixing."
+        lines = ["REPAIRS (applied to the working frame on approval)"]
+        lines.extend(p.describe() for p in self.repairs)
+        return "\n".join(lines)
 
-        lines: list[str] = []
-        if self.repairs:
-            lines.append("REPAIRS (applied to the working frame on approval)")
-            lines.extend(p.describe() for p in self.repairs)
-        if self.transforms:
-            if lines:
-                lines.append("")
-            lines.append("TRANSFORMS (unfitted pipeline steps; fitted inside each CV fold)")
-            lines.extend(p.describe() for p in self.transforms)
+    def __repr__(self) -> str:
+        return self.describe()
+
+
+@dataclass(frozen=True)
+class TransformPlan:
+    """A set of tier-2 transform proposals, argued from the (already-repaired) working
+    frame. Never applied eagerly -- see CLAUDE.md's two-tier data model."""
+
+    transforms: tuple[Proposal, ...] = ()
+
+    def __getitem__(self, proposal_id: str) -> Proposal:
+        for proposal in self.transforms:
+            if proposal.id == proposal_id:
+                return proposal
+        raise KeyError(proposal_id)
+
+    @property
+    def ids(self) -> tuple[str, ...]:
+        return tuple(p.id for p in self.transforms)
+
+    def without(self, dropped: tuple[str, ...]) -> "TransformPlan":
+        """A copy with the named proposals removed, for approving a subset."""
+        unknown = set(dropped) - set(self.ids)
+        if unknown:
+            raise KeyError(f"no such proposal(s): {sorted(unknown)}; plan has {self.ids}")
+        return TransformPlan(transforms=tuple(p for p in self.transforms if p.id not in dropped))
+
+    def describe(self) -> str:
+        if not self.transforms:
+            return "No transforms proposed: nothing detected that needs preprocessing."
+        lines = ["TRANSFORMS (unfitted pipeline steps; fitted inside each CV fold)"]
+        lines.extend(p.describe() for p in self.transforms)
         return "\n".join(lines)
 
     def __repr__(self) -> str:

@@ -13,11 +13,14 @@ Typical opening of a notebook::
 """
 
 from dsa.clean import (
-    Plan,
     Proposal,
-    approve,
+    RepairPlan,
+    TransformPlan,
+    approve_repairs,
+    approve_transforms,
     preprocessor,
-    propose,
+    propose_repairs,
+    propose_transforms,
     treatments,
 )
 from dsa.gates import (
@@ -76,10 +79,13 @@ __all__ = [
     "profile_frame",
     "DataProfile",
     "ColumnProfile",
-    "propose",
-    "approve",
+    "propose_repairs",
+    "approve_repairs",
+    "propose_transforms",
+    "approve_transforms",
     "preprocessor",
     "treatments",
-    "Plan",
+    "RepairPlan",
+    "TransformPlan",
     "Proposal",
 ]

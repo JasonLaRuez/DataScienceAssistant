@@ -36,7 +36,7 @@ from dsa.gates import Gate
 from dsa.runlog import RunLog, environment_snapshot
 
 if TYPE_CHECKING:  # pragma: no cover - import only for type checkers
-    from dsa.clean.plan import Plan, Proposal
+    from dsa.clean.plan import Proposal, RepairPlan, TransformPlan
 
 # A tier-1 repair is a named, deterministic frame -> frame function. Keeping the shape
 # this simple is what makes replaying the whole list cheap and order-explicit.
@@ -67,8 +67,11 @@ class Session:
     repairs: list[tuple[str, Repair]] = field(default_factory=list)
     gates: dict[str, Gate] = field(default_factory=dict)
 
-    # The most recent proposal set, and the tier-2 transforms approved from it.
-    plan: Plan | None = None
+    # The most recent proposal set for each phase, and the tier-2 transforms approved
+    # from the second. Kept separate because a repair plan and a transform plan are
+    # proposed and reviewed at different times (repairs first, transforms only after).
+    repair_plan: RepairPlan | None = None
+    transform_plan: TransformPlan | None = None
     transforms: tuple[Proposal, ...] = ()
 
     @property

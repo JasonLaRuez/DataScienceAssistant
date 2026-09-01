@@ -2,31 +2,38 @@
 
 Split by responsibility so each part can be reviewed on its own:
 
-* :mod:`dsa.clean.plan`      - the vocabulary: a Proposal and a Plan (pure data)
+* :mod:`dsa.clean.plan`      - the vocabulary: a Proposal, a RepairPlan, a TransformPlan
 * :mod:`dsa.clean.detect`    - measuring the frame and arguing for changes
 * :mod:`dsa.clean.repairs`   - executing approved tier-1 repairs (idempotent)
 * :mod:`dsa.clean.pipeline`  - composing approved tier-2 transforms, unfitted
-* :mod:`dsa.clean.proposals` - the propose / approve interaction
+* :mod:`dsa.clean.proposals` - the two-phase propose / approve interaction: repairs, then
+  transforms
 """
 
-from dsa.clean.detect import detect
-from dsa.clean.plan import Plan, Proposal
+from dsa.clean.detect import detect_repairs, detect_transforms
+from dsa.clean.plan import Proposal, RepairPlan, TransformPlan
 from dsa.clean.pipeline import build_preprocessor, column_treatments
 from dsa.clean.proposals import (
-    approve,
+    approve_repairs,
+    approve_transforms,
     feature_columns,
     preprocessor,
-    propose,
+    propose_repairs,
+    propose_transforms,
     treatments,
 )
 from dsa.clean.repairs import build_repair
 
 __all__ = [
-    "Plan",
+    "RepairPlan",
+    "TransformPlan",
     "Proposal",
-    "detect",
-    "propose",
-    "approve",
+    "detect_repairs",
+    "detect_transforms",
+    "propose_repairs",
+    "approve_repairs",
+    "propose_transforms",
+    "approve_transforms",
     "preprocessor",
     "treatments",
     "feature_columns",
