@@ -64,6 +64,12 @@ class Session:
     repairs: list[tuple[str, Repair]] = field(default_factory=list)
     gates: dict[str, Gate] = field(default_factory=dict)
 
+    # The most recent proposal set, and the tier-2 transforms approved from it. Typed
+    # loosely to keep dsa.clean importable from here without a circular import; the real
+    # types are dsa.clean.plan.Plan and a tuple of Proposal.
+    plan: Any | None = None
+    transforms: tuple[Any, ...] = ()
+
     @property
     def figures_dir(self) -> Path:
         """Where exploratory figures are written. Gitignored; only figures the write-up

@@ -120,7 +120,7 @@ def test_missing_credentials_explain_all_three_mechanisms(clean_env):
 def test_credential_value_never_reaches_the_log(clean_env, monkeypatch, session, dataset):
     """Only the *mechanism* is recorded, never the secret itself."""
     monkeypatch.setenv("KAGGLE_API_TOKEN", "KGAT_supersecret")
-    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug: dataset)
+    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug, cache_dir: dataset)
 
     dsa.load_kaggle(session, "someone/dataset")
 
@@ -137,7 +137,7 @@ def authed(clean_env, monkeypatch):
 
 
 def test_load_kaggle_populates_the_session(authed, monkeypatch, session, dataset):
-    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug: dataset)
+    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug, cache_dir: dataset)
 
     dsa.load_kaggle(session, "someone/titanic")
 
@@ -154,7 +154,7 @@ def test_load_kaggle_populates_the_session(authed, monkeypatch, session, dataset
 
 def test_loading_opens_but_does_not_force_the_target_gate(authed, monkeypatch, session, dataset):
     """Step 1 completes; naming a target needs a look at the data first."""
-    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug: dataset)
+    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug, cache_dir: dataset)
     dsa.load_kaggle(session, "someone/titanic")
 
     gate = session.gates["target"]
@@ -171,7 +171,7 @@ def test_multiple_tables_open_a_gate_and_the_retry_succeeds(authed, monkeypatch,
     directory.mkdir()
     pd.DataFrame({"a": [1], "y": [0]}).to_csv(directory / "train.csv", index=False)
     pd.DataFrame({"a": [2]}).to_csv(directory / "test.csv", index=False)
-    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug: directory)
+    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug, cache_dir: directory)
 
     with pytest.raises(dsa.GateRequired, match="Which one should be loaded"):
         dsa.load_kaggle(session, "someone/multi")
@@ -182,14 +182,14 @@ def test_multiple_tables_open_a_gate_and_the_retry_succeeds(authed, monkeypatch,
 
 
 def test_naming_a_missing_file_lists_what_is_available(authed, monkeypatch, session, dataset):
-    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug: dataset)
+    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug, cache_dir: dataset)
     with pytest.raises(FileNotFoundError, match="train.csv"):
         dsa.load_kaggle(session, "someone/titanic", file="nope.csv")
 
 
 def test_loading_a_second_dataset_discards_stale_repairs(authed, monkeypatch, session, dataset):
     """Repairs were approved for the previous frame; carrying them over would be wrong."""
-    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug: dataset)
+    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug, cache_dir: dataset)
     dsa.load_kaggle(session, "someone/titanic")
     session.repairs = [("drop_fare", lambda df: df.drop(columns=["fare"]))]
 
