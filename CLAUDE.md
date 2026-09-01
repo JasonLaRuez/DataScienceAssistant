@@ -98,6 +98,30 @@ the run id and directory, the RunLog, the raw and working frames, the target/tas
 **RunLog** appends one JSON object per operation to `runs/<run_id>/run.jsonl`, flushed on
 write. A sibling `env.json` records Python and package versions, platform, and the seed.
 
+## Decisions already made
+
+Settled deliberately, with the rejected option and the reason. Do not re-propose these
+without new information; treat them as closed.
+
+| Decision | Chosen | Rejected, and why |
+|---|---|---|
+| Environment | `uv` + `pyproject.toml` + committed `uv.lock` | conda (slow solves, awkward pip deps); bare venv+pip (no lockfile) |
+| Notebooks in git | commit `.ipynb`, outputs stripped by nbstripout | jupytext pairing (two more packages, loses plots); committing outputs (unreadable diffs); gitignoring notebooks (no version history) |
+| Session state | an explicit `Session` passed to every operation | a module-level active session (hidden global state, ambiguous after a partial kernel restart) |
+| Models | scikit-learn + XGBoost + LightGBM | PyTorch (an MLP rarely beats trees on tabular data; ~2.5 GB install) - the model registry stays open for it later |
+| Branching | commit to `main`, annotated tag per finished step | branch-per-step and PR review (ceremony for a solo project; the user reviews files directly in the editor) |
+| Plotting | seaborn alongside matplotlib | matplotlib alone (roughly twice the plotting code for worse defaults) |
+| Editor | VS Code + Python/Jupyter extensions | JupyterLab (silently overwrites a notebook edited underneath it; VS Code detects and prompts) |
+
+**Working agreement on notebooks:** never edit a `.ipynb` the user may have open with
+unsaved changes. Prefer appending cells over rewriting, and confirm the file is saved
+first. Otherwise stay in `src/`.
+
+**Step 7 output format:** a markdown cell at the bottom of the finished notebook, rendered
+from the run log. Figures it references are committed files under `reports/figures/`,
+because nbstripout removes rendered output from the notebook itself. Exploratory figures
+stay under `runs/<run_id>/figures/`, which is gitignored.
+
 ## Pipeline steps
 
 | Step | Module | Gate |
