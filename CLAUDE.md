@@ -99,3 +99,15 @@ Default validation: 5-fold cross-validation.
 pandas, NumPy, scikit-learn, matplotlib, seaborn, XGBoost, LightGBM. Environment managed by
 `uv` against a hermetic Python 3.12. PyTorch is deliberately out of v1 scope; the model
 registry is designed so it can be added later without a rewrite.
+
+## Environment notes
+
+- **pandas 3.x is in use.** String columns have dtype `str`, not `object`. Never detect
+  text columns with `dtype == object` - use `pandas.api.types.is_string_dtype` or select
+  on the `str` dtype. Copy-on-write is the default, and chained assignment raises.
+- **`uv sync` must be run with `--no-python-downloads`** if it fails with "Missing expected
+  target directory for Python minor version link". This is a uv 0.12.8 bug in creating the
+  minor-version junction on Windows; the interpreter itself installs correctly.
+- Verified working together: pandas 3.0.5, scikit-learn 1.9.0, seaborn 0.13.2,
+  XGBoost 3.4.1, LightGBM 4.7.0 (ColumnTransformer -> Pipeline -> 5-fold CV, and both
+  boosters on categorical dtypes).
