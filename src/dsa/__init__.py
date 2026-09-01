@@ -8,7 +8,8 @@ Typical opening of a notebook::
 
     import dsa
     s = dsa.new_session()
-    s
+    s = dsa.load_kaggle(s, "titanic/titanic")
+    dsa.pending(s)          # what still needs a human decision
 """
 
 from dsa.gates import (
@@ -21,6 +22,14 @@ from dsa.gates import (
     require,
     revise,
 )
+from dsa.io import (
+    CredentialsMissing,
+    credential_source,
+    find_tables,
+    read_table,
+    table_format,
+)
+from dsa.io.kaggle import load_file, load_kaggle
 from dsa.runlog import RunEntry, RunLog, environment_snapshot
 from dsa.session import Session, find_project_root, new_session
 
@@ -45,4 +54,12 @@ __all__ = [
     "revise",
     "proceed",
     "pending",
+    # loading (step 1)
+    "load_kaggle",
+    "load_file",
+    "read_table",
+    "find_tables",
+    "table_format",
+    "credential_source",
+    "CredentialsMissing",
 ]
