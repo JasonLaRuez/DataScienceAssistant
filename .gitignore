@@ -31,3 +31,7 @@ venv/
 Thumbs.db
 .DS_Store
 .vscode/settings.json
+
+# Editor/tool backup files (an in-place sed once committed one of these)
+*.bak
+*.orig

@@ -46,8 +46,12 @@ to disk immediately so a kernel crash loses nothing. The step-7 write-up is rend
 that log, never from recollection.
 
 ### 7. Never commit data or credentials
-`data/` and `runs/` are gitignored. Kaggle credentials live in `~/.kaggle/kaggle.json`,
-outside the repository, and are never read into the RunLog or printed.
+`data/` and `runs/` are gitignored; the kagglehub cache is pointed at `data/` so a
+project stays self-contained. Kaggle credentials live outside the repository -- a
+`KAGGLE_API_TOKEN` environment variable for modern `KGAT_` tokens, or the classic
+`KAGGLE_USERNAME`/`KAGGLE_KEY` pair or `~/.kaggle/kaggle.json`. Code asks only *which*
+mechanism is configured and never reads the value; the RunLog redacts parameter names
+matching `token|secret|password|credential|api_key`.
 
 ### 8. Stop at gates
 Never infer the target column, the task type, or whether group-aware splitting is needed.
@@ -59,6 +63,20 @@ Two kinds of gate:
 ### 9. Propose, never apply
 No change touches the user's data without approval. Proposals carry evidence - counts,
 concrete example values, and the consequence of applying - not bare assertions.
+
+### 10. Plan a step before building it
+When asked to work on a pipeline step, do not write code first. Propose a detailed plan
+and wait for approval. The plan covers:
+
+- the modules and public functions to be added, with their signatures
+- which gates the step opens, and of which kind
+- what is deliberately **out of scope** for the step
+- every decision with more than one reasonable answer, stated as tradeoffs rather than
+  a pick (rule 3 applies: the user is choosing, not being informed)
+- what the tests will prove, and what would count as the step failing
+
+Revise the plan as directed and re-confirm before writing any code. This applies to a
+step being redone as much as to a step being started for the first time.
 
 ## Architecture
 
