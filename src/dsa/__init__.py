@@ -12,6 +12,14 @@ Typical opening of a notebook::
     dsa.pending(s)          # what still needs a human decision
 """
 
+from dsa.clean import (
+    Plan,
+    Proposal,
+    approve,
+    preprocessor,
+    propose,
+    treatments,
+)
 from dsa.gates import (
     Gate,
     GateRequired,
@@ -30,6 +38,7 @@ from dsa.io import (
     table_format,
 )
 from dsa.io.kaggle import load_file, load_kaggle
+from dsa.profile import ColumnProfile, DataProfile, profile, profile_frame
 from dsa.runlog import RunEntry, RunLog, environment_snapshot
 from dsa.session import Session, find_project_root, new_session
 
@@ -62,4 +71,15 @@ __all__ = [
     "table_format",
     "credential_source",
     "CredentialsMissing",
+    # profiling and cleaning (step 2)
+    "profile",
+    "profile_frame",
+    "DataProfile",
+    "ColumnProfile",
+    "propose",
+    "approve",
+    "preprocessor",
+    "treatments",
+    "Plan",
+    "Proposal",
 ]

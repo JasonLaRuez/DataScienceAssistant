@@ -25,6 +25,22 @@ def test_require_raises_until_answered(session):
     assert dsa.require(session, "target") == "survived"
 
 
+def test_deciding_target_task_or_groups_updates_the_session_field(session):
+    """These three are read directly off Session elsewhere (e.g. dsa.propose), not
+    re-fetched through require() every time, so decide() must keep them in sync."""
+    dsa.open_gate(session, "target", DECISION, "Which column is the target?", step=1)
+    dsa.decide(session, "target", "survived")
+    assert session.target == "survived"
+
+
+def test_deciding_an_unrelated_key_does_not_touch_session_state(session):
+    """The sync is an allowlist, not a blanket setattr: a gate opened under a name that
+    happens to match unrelated session state (e.g. "seed") must not clobber it."""
+    dsa.open_gate(session, "seed", DECISION, "?", step=1)
+    dsa.decide(session, "seed", 999)
+    assert session.seed == 0  # unchanged
+
+
 def test_reopening_a_gate_does_not_discard_an_answer(session):
     """Re-running a notebook cell must not silently reset a decision."""
     dsa.open_gate(session, "task", DECISION, "Classification or regression?", step=1)

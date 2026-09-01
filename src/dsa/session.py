@@ -28,12 +28,15 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Callable
 
 import pandas as pd
 
 from dsa.gates import Gate
 from dsa.runlog import RunLog, environment_snapshot
+
+if TYPE_CHECKING:  # pragma: no cover - import only for type checkers
+    from dsa.clean.plan import Plan, Proposal
 
 # A tier-1 repair is a named, deterministic frame -> frame function. Keeping the shape
 # this simple is what makes replaying the whole list cheap and order-explicit.
@@ -63,6 +66,10 @@ class Session:
     # --- accumulated decisions ---------------------------------------------------
     repairs: list[tuple[str, Repair]] = field(default_factory=list)
     gates: dict[str, Gate] = field(default_factory=dict)
+
+    # The most recent proposal set, and the tier-2 transforms approved from it.
+    plan: Plan | None = None
+    transforms: tuple[Proposal, ...] = ()
 
     @property
     def figures_dir(self) -> Path:

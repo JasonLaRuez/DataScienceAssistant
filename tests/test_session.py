@@ -77,6 +77,12 @@ def test_summary_reports_open_gates(session):
     assert "target" in session.summary()
 
 
+def test_plan_and_transforms_default_to_unset(session):
+    """A fresh session has no cleaning plan proposed and nothing approved yet."""
+    assert session.plan is None
+    assert session.transforms == ()
+
+
 def test_find_project_root_locates_pyproject(tmp_path):
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
     nested = tmp_path / "notebooks" / "deep"

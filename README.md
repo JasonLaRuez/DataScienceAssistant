@@ -101,8 +101,9 @@ from the run log.
 
 ## Status
 
-Steps 1 (loading) and the Session / RunLog / gate spine are implemented. Step 2 was built
-and then deliberately reverted; it remains available at tag `v0.1-step2-clean` and will be
-rebuilt from a fresh plan.
+Steps 1 (loading) and 2 (profiling, and the propose/approve cleaning plan) are
+implemented, along with the Session / RunLog / gate spine. The original step 2 build is
+still available at tag `v0.1-step2-clean` for reference; the current version was rebuilt
+from an approved plan per CLAUDE.md rule 10.
 
 Development rules and architecture notes are in [CLAUDE.md](CLAUDE.md).

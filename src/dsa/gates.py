@@ -29,6 +29,14 @@ if TYPE_CHECKING:  # pragma: no cover - import only for type checkers
 DECISION = "decision"
 REVIEW = "review"
 
+# Decision-gate keys that mirror their answer directly onto a same-named ``Session``
+# field. CLAUDE.md's architecture section is explicit that target/task/groups are "set
+# only through gates, never inferred" -- this is what makes that true, rather than each
+# caller having to remember to also assign the attribute. Deliberately an allowlist
+# rather than a blanket ``setattr`` on any matching key: a gate accidentally opened as
+# e.g. "log" or "run_id" must not be able to clobber unrelated session state.
+_SESSION_FIELDS = frozenset({"target", "task", "groups"})
+
 
 class GateRequired(Exception):
     """Raised when an operation needs a human decision that has not been made yet.
@@ -125,6 +133,8 @@ def decide(session: "Session", key: str, value: Any) -> Gate:
 
     gate.answer = value
     gate.answered = True
+    if key in _SESSION_FIELDS:
+        setattr(session, key, value)
     with session.log.record(gate.step, "gate.decide", {"key": key, "answer": value}):
         pass
     return gate
