@@ -18,6 +18,7 @@ from dsa.viz.figures import (
     categorical_association_heatmap,
     categorical_bar_charts,
     correlation_heatmap,
+    missingness_bar_chart,
     numeric_box_plots,
     pair_plot,
     scatter_matrix,
@@ -154,6 +155,40 @@ def test_categorical_bar_charts_label_each_bar_with_count_and_proportion():
     labels = {t.get_text() for t in fig.axes[0].texts}
     assert "3\n(75.0%)" in labels
     assert "1\n(25.0%)" in labels
+
+
+def test_missingness_bar_chart_includes_only_columns_with_missing_values():
+    frame = pd.DataFrame({
+        "complete": [1, 2, 3, 4],
+        "a_little": [1, None, 3, 4],
+        "a_lot": [None, None, None, 4],
+    })
+    fig = missingness_bar_chart(frame, profile_frame(frame))
+    labels = [t.get_text() for t in fig.axes[0].get_xticklabels()]
+    assert set(labels) == {"a_little", "a_lot"}
+
+
+def test_missingness_bar_chart_sorts_ascending_left_to_right():
+    frame = pd.DataFrame({
+        "a_lot": [None, None, None, 4],
+        "a_little": [1, None, 3, 4],
+        "some": [1, 2, None, None],
+    })
+    fig = missingness_bar_chart(frame, profile_frame(frame))
+    labels = [t.get_text() for t in fig.axes[0].get_xticklabels()]
+    assert labels == ["a_little", "some", "a_lot"]  # 1, 2, 3 missing respectively
+
+
+def test_missingness_bar_chart_labels_count_and_proportion():
+    frame = pd.DataFrame({"a": [1, None, None, 4]})  # 2 missing of 4 rows = 50%
+    fig = missingness_bar_chart(frame, profile_frame(frame))
+    labels = {t.get_text() for t in fig.axes[0].texts}
+    assert "2\n(50.0%)" in labels
+
+
+def test_missingness_bar_chart_is_none_when_nothing_is_missing():
+    frame = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    assert missingness_bar_chart(frame, profile_frame(frame)) is None
 
 
 def test_numeric_box_plots_covers_every_numeric_column():
@@ -414,3 +449,45 @@ def test_plot_scatter_matrix_does_not_close_the_figures_gate(analyzed_session):
     dsa.analyze(analyzed_session)
     dsa.plot_scatter_matrix(analyzed_session)
     assert not analyzed_session.gates["figures"].answered
+
+
+# --- dsa.plot_missingness ------------------------------------------------------------
+
+def test_plot_missingness_needs_no_gate_and_works_before_repairs_are_even_proposed(session):
+    """Unlike plot_pair/plot_scatter_matrix, this is useful before propose_repairs(s)
+    has even been called -- it can inform which repairs to propose."""
+    frame = pd.DataFrame({"a": [1.0, None, 3.0], "y": [0, 1, 0]})
+    session.raw = frame
+    session.rebuild()
+    session.target = "y"
+
+    path = dsa.plot_missingness(session)
+
+    assert path is not None
+    assert path.exists()
+
+
+def test_plot_missingness_returns_none_when_nothing_is_missing(session):
+    frame = pd.DataFrame({"a": [1.0, 2.0, 3.0], "y": [0, 1, 0]})
+    session.raw = frame
+    session.rebuild()
+    session.target = "y"
+
+    assert dsa.plot_missingness(session) is None
+    entry = next(e for e in session.log.entries if e.op == "viz.plot_missingness")
+    assert entry.artifacts == []
+    assert entry.notes == "no missing values"
+
+
+def test_plot_missingness_saves_and_logs_the_figure(session):
+    frame = pd.DataFrame({"a": [1.0, None, 3.0], "y": [0, 1, 0]})
+    session.raw = frame
+    session.rebuild()
+    session.target = "y"
+
+    path = dsa.plot_missingness(session)
+
+    assert path.parent == session.figures_dir
+    assert path.name == "missingness.png"
+    entry = next(e for e in session.log.entries if e.op == "viz.plot_missingness")
+    assert entry.artifacts == [str(path)]

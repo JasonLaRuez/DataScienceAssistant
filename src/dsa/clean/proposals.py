@@ -28,6 +28,9 @@ def propose_repairs(session: Session) -> RepairPlan:
 
     Opens a review gate: the plan is a starting point to be argued with, not a verdict.
     Re-running after a revision is cheap and safe, because nothing has been applied.
+
+    See also :func:`dsa.plot_missingness`, a visual view of the same missingness this
+    reasons about numerically -- useful side by side when deciding what to propose.
     """
     if session.df is None:
         raise ValueError("no data loaded; call a loader first")

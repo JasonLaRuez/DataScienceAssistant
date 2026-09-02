@@ -77,6 +77,36 @@ def categorical_bar_charts(
     return figures, skipped
 
 
+def missingness_bar_chart(frame: pd.DataFrame, profile: DataProfile) -> Figure | None:
+    """A bar chart of every column with at least one missing value, sorted ascending
+    left-to-right by how much is missing, so the worst offenders read off the right
+    edge. Returns ``None`` if nothing is missing anywhere.
+
+    Deliberately kind-agnostic (unlike every other builder here, this needs no
+    numeric/categorical/boolean bucketing -- a value is either missing or it isn't,
+    regardless of a column's kind), so it only reads counts already sitting on
+    ``profile`` and never touches ``frame``. Takes ``frame`` anyway to keep the same
+    ``(frame, profile)`` shape as every other function in this module.
+    """
+    missing = sorted((c for c in profile.columns if c.n_missing > 0), key=lambda c: c.n_missing)
+    if not missing:
+        return None
+
+    names = [c.name for c in missing]
+    counts = [c.n_missing for c in missing]
+    total = profile.n_rows
+
+    fig, ax = plt.subplots(figsize=(max(4.5, 0.8 * len(names) + 2), 4.8))
+    bars = ax.bar(names, counts, color=_COLOR)
+    ax.bar_label(bars, labels=[f"{c:,}\n({c / total:.1%})" for c in counts], padding=3)
+    ax.margins(y=0.15)
+    ax.set_title("missing values by column")
+    ax.set_xlabel("column")
+    ax.set_ylabel("missing count")
+    fig.tight_layout()
+    return fig
+
+
 def numeric_box_plots(frame: pd.DataFrame, profile: DataProfile) -> list[tuple[str, Figure]]:
     """One box-and-whisker plot per numeric column, to surface outliers.
 

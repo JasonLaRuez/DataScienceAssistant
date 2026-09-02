@@ -20,6 +20,7 @@ from dsa.viz.figures import (
     categorical_association_heatmap,
     categorical_bar_charts,
     correlation_heatmap,
+    missingness_bar_chart,
     numeric_box_plots,
     pair_plot,
     scatter_matrix,
@@ -190,6 +191,31 @@ def plot_scatter_matrix(session: Session, columns: tuple[str, ...] | None = None
     ) as rec:
         figure = scatter_matrix(session.df, profile, columns)
         path = _save(session, "scatter_matrix", figure)
+        rec.artifacts = [str(path)]
+
+    return path
+
+
+def plot_missingness(session: Session) -> Path | None:
+    """Plot which columns have missing values and how much, sorted ascending so the
+    worst offenders read off the right edge.
+
+    Unlike every other function in this module, this has no gate to wait on -- it's a
+    diagnostic view useful before repairs are even proposed, to help decide which ones
+    to propose (see also :func:`dsa.clean.proposals.propose_repairs`, which reasons
+    about the same missingness numerically). Returns ``None`` (and saves nothing) if
+    the working frame has no missing values.
+    """
+    if session.df is None:
+        raise ValueError("no data loaded; call a loader first")
+    profile = profile_frame(session.df)
+
+    with session.log.record(STEP, "viz.plot_missingness", {}, session.df.shape) as rec:
+        figure = missingness_bar_chart(session.df, profile)
+        if figure is None:
+            rec.notes = "no missing values"
+            return None
+        path = _save(session, "missingness", figure)
         rec.artifacts = [str(path)]
 
     return path
