@@ -13,10 +13,10 @@ from __future__ import annotations
 from sklearn.compose import ColumnTransformer
 
 from dsa.clean.detect import detect_repairs, detect_transforms
-from dsa.clean.pipeline import build_preprocessor, column_treatments
-from dsa.clean.plan import RepairPlan, TransformPlan
-from dsa.clean.repairs import build_repair
-from dsa.gates import REVIEW, GateRequired, open_gate, proceed
+from dsa.clean.pipeline import TRANSFORM_KINDS, build_preprocessor, column_treatments
+from dsa.clean.plan import REPAIR, TRANSFORM, Proposal, RepairPlan, TransformPlan
+from dsa.clean.repairs import REPAIR_KINDS, build_repair
+from dsa.gates import REVIEW, GateRequired, open_gate, proceed, revise
 from dsa.profile import profile_frame
 from dsa.session import Session
 
@@ -88,6 +88,53 @@ def approve_repairs(
     return session
 
 
+def propose_manual_repair(
+    session: Session,
+    kind: str,
+    columns: tuple[str, ...] = (),
+    reason: str = "",
+    **params: object,
+) -> RepairPlan:
+    """Add a human-specified repair to the proposed repair plan (step 2a).
+
+    For a case dsa.clean.detect's rules don't catch, or a domain judgment call no rule
+    should make, this adds exactly the repair you name -- ``reason`` becomes its evidence.
+    Still goes through :func:`approve_repairs` afterward; nothing is applied here.
+
+    Requires :func:`propose_repairs` to have been called and not yet approved -- enforced
+    by :func:`dsa.gates.revise`, reused here for its existing guard and its logging of
+    each round argued over a plan.
+    """
+    columns = tuple(columns)
+    revise(session, "repair_plan", reason or f"manual {kind} on {columns or 'the frame'}")
+
+    if kind not in REPAIR_KINDS:
+        raise ValueError(f"unknown repair kind {kind!r}; valid kinds are {REPAIR_KINDS}")
+    _validate_columns_exist(session, columns)
+    repair_params = _repair_params(kind, columns)
+
+    plan = session.repair_plan
+    proposal = Proposal(
+        id=_next_manual_id(plan.ids),
+        tier=REPAIR,
+        kind=kind,
+        columns=columns,
+        summary=f"{kind}({', '.join(columns)}): user override" if columns else f"{kind}: user override",
+        evidence=reason or "no reason given",
+        consequence="applied like any other approved repair once you call dsa.approve_repairs(s)",
+        alternatives=("reject it instead via dsa.approve_repairs(s, drop=(...))",),
+        params=repair_params,
+    )
+    updated = RepairPlan(repairs=(*plan.repairs, proposal))
+    session.repair_plan = updated
+
+    with session.log.record(
+        STEP, "clean.propose_manual_repair", {"kind": kind, "columns": list(columns), "id": proposal.id}
+    ):
+        pass
+    return updated
+
+
 def propose_transforms(session: Session) -> TransformPlan:
     """Profile the (now-repaired) working frame and propose tier-2 transforms (step 2b).
 
@@ -147,6 +194,53 @@ def approve_transforms(
     return session
 
 
+def propose_manual_transform(
+    session: Session,
+    kind: str,
+    columns: tuple[str, ...],
+    reason: str = "",
+    **params: object,
+) -> TransformPlan:
+    """Add a human-specified transform to the proposed transform plan (step 2b).
+
+    Same shape as :func:`propose_manual_repair`, for the transform phase. Never applied
+    eagerly -- step 5 fits the resulting pipeline inside each CV fold, on that fold's
+    training rows only.
+    """
+    columns = tuple(columns)
+    revise(session, "transform_plan", reason or f"manual {kind} on {columns}")
+
+    if kind not in TRANSFORM_KINDS:
+        raise ValueError(f"unknown transform kind {kind!r}; valid kinds are {TRANSFORM_KINDS}")
+    if not columns:
+        raise ValueError(f"{kind!r} requires at least one column")
+    if session.target in columns:
+        raise ValueError(f"the target column {session.target!r} cannot be transformed")
+    _validate_columns_exist(session, columns)
+    transform_params = _transform_params(kind, params)
+
+    plan = session.transform_plan
+    proposal = Proposal(
+        id=_next_manual_id(plan.ids),
+        tier=TRANSFORM,
+        kind=kind,
+        columns=columns,
+        summary=f"{kind}({', '.join(columns)}): user override",
+        evidence=reason or "no reason given",
+        consequence="fitted like any other approved transform once you call dsa.approve_transforms(s)",
+        alternatives=("reject it instead via dsa.approve_transforms(s, drop=(...))",),
+        params=transform_params,
+    )
+    updated = TransformPlan(transforms=(*plan.transforms, proposal))
+    session.transform_plan = updated
+
+    with session.log.record(
+        STEP, "clean.propose_manual_transform", {"kind": kind, "columns": list(columns), "id": proposal.id}
+    ):
+        pass
+    return updated
+
+
 def _invalidate_transforms(session: Session) -> None:
     """Clear any transforms approved against a since-changed working frame.
 
@@ -182,3 +276,55 @@ def preprocessor(session: Session) -> ColumnTransformer:
 def treatments(session: Session):
     """Per-column report of what the pipeline will do, for review before fitting."""
     return column_treatments(session.transforms, feature_columns(session))
+
+
+def _next_manual_id(existing_ids: tuple[str, ...]) -> str:
+    """A fresh id for a human-added proposal, prefixed 'U' so it's never mistaken for a
+    detector's R#/T# in a printed plan, and can never collide with one."""
+    n = sum(1 for id_ in existing_ids if id_.startswith("U"))
+    return f"U{n + 1}"
+
+
+def _validate_columns_exist(session: Session, columns: tuple[str, ...]) -> None:
+    unknown = [c for c in columns if c not in session.df.columns]
+    if unknown:
+        raise ValueError(f"no such column(s) in the working frame: {unknown}")
+
+
+def _repair_params(kind: str, columns: tuple[str, ...]) -> dict[str, object]:
+    """Map a public (kind, columns) call onto the params shape dsa.clean.repairs expects.
+    Also where arity is enforced -- a repair kind's column count is fixed by what it does,
+    not a free choice."""
+    if kind == "drop_duplicate_rows":
+        if columns:
+            raise ValueError(f"{kind!r} does not take any columns; got {columns}")
+        return {}
+    if kind == "drop_columns":
+        if not columns:
+            raise ValueError(f"{kind!r} requires at least one column")
+        return {"columns": list(columns)}
+    if kind in ("coerce_numeric", "coerce_datetime", "drop_rows_missing_target"):
+        if len(columns) != 1:
+            raise ValueError(f"{kind!r} takes exactly one column; got {columns}")
+        return {"column": columns[0]}
+    raise AssertionError(f"unhandled repair kind {kind!r}")  # REPAIR_KINDS guards this
+
+
+def _transform_params(kind: str, params: dict[str, object]) -> dict[str, object]:
+    """Map a public **params call onto the params shape dsa.clean.pipeline expects,
+    defaulting to what dsa.clean.detect itself proposes when left unspecified."""
+    if kind == "impute_numeric":
+        _reject_unknown_params(kind, params, {"strategy"})
+        return {"strategy": params.get("strategy", "median")}
+    if kind == "impute_categorical":
+        _reject_unknown_params(kind, params, {"fill_value"})
+        return {"fill_value": params.get("fill_value", "missing")}
+    # scale_numeric, onehot_categorical, drop_high_cardinality, extract_datetime_parts
+    _reject_unknown_params(kind, params, set())
+    return {}
+
+
+def _reject_unknown_params(kind: str, params: dict[str, object], allowed: set[str]) -> None:
+    unknown = set(params) - allowed
+    if unknown:
+        raise ValueError(f"{kind!r} does not accept parameter(s) {sorted(unknown)}")

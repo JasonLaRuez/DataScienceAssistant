@@ -326,6 +326,138 @@ def test_reapproving_repairs_invalidates_approved_transforms(session, messy):
         dsa.approve_transforms(session)
 
 
+# --- manually adding a proposal the detector missed -----------------------------------
+
+def test_propose_manual_repair_adds_a_proposal_the_detector_missed(session, messy):
+    """'city' is a perfectly ordinary low-cardinality column -- no detector would ever
+    propose dropping it -- but a human may still have a domain reason to."""
+    loaded(session, messy, target="churn")
+    plan = dsa.propose_repairs(session)
+    assert not any("city" in p.columns for p in plan.repairs)
+
+    updated = dsa.propose_manual_repair(
+        session, kind="drop_columns", columns=("city",), reason="not using this for v1"
+    )
+
+    added = next(p for p in updated.repairs if "city" in p.columns)
+    assert added.id.startswith("U")
+    assert added.evidence == "not using this for v1"
+
+    dsa.approve_repairs(session)
+    assert "city" not in session.df.columns
+
+
+def test_propose_manual_repair_rejects_an_unknown_kind(session, messy):
+    loaded(session, messy, target="churn")
+    dsa.propose_repairs(session)
+    with pytest.raises(ValueError, match="unknown repair kind"):
+        dsa.propose_manual_repair(session, kind="log_transform", columns=("income",))
+
+
+def test_propose_manual_repair_rejects_an_unknown_column(session, messy):
+    loaded(session, messy, target="churn")
+    dsa.propose_repairs(session)
+    with pytest.raises(ValueError, match="no such column"):
+        dsa.propose_manual_repair(session, kind="drop_columns", columns=("not_a_column",))
+
+
+def test_propose_manual_repair_rejects_the_wrong_arity(session, messy):
+    loaded(session, messy, target="churn")
+    dsa.propose_repairs(session)
+    with pytest.raises(ValueError, match="does not take any columns"):
+        dsa.propose_manual_repair(session, kind="drop_duplicate_rows", columns=("city",))
+    with pytest.raises(ValueError, match="exactly one column"):
+        dsa.propose_manual_repair(session, kind="coerce_numeric", columns=("city", "income"))
+
+
+def test_propose_manual_repair_requires_a_proposed_and_unapproved_plan(session, messy):
+    loaded(session, messy, target="churn")
+    with pytest.raises(KeyError, match="no gate named"):
+        dsa.propose_manual_repair(session, kind="drop_columns", columns=("city",))
+
+    dsa.propose_repairs(session)
+    dsa.approve_repairs(session)
+    with pytest.raises(ValueError, match="already closed"):
+        dsa.propose_manual_repair(session, kind="drop_columns", columns=("city",))
+
+
+def test_propose_manual_transform_adds_a_proposal_the_detector_missed(session):
+    """A column the detector drops for high cardinality can be manually kept and encoded
+    instead -- the exact Ticket/Cabin situation from this conversation's Titanic run."""
+    frame = pd.DataFrame({
+        "idx": range(100),                             # breaks exact row duplication;
+        "code": [f"id-{i % 25}" for i in range(100)],  # 25 distinct values: high-cardinality
+        "y": [i % 2 for i in range(100)],
+    })
+    loaded(session, frame, target="y")
+    dsa.propose_repairs(session)
+    dsa.approve_repairs(session)  # 'idx' is dropped as a near-unique identifier; 'code' isn't
+    plan = dsa.propose_transforms(session)
+    drop_proposal = next(p for p in plan.transforms if p.kind == "drop_high_cardinality")
+    assert not any(p.kind == "onehot_categorical" for p in plan.transforms)
+
+    updated = dsa.propose_manual_transform(
+        session, kind="onehot_categorical", columns=("code",),
+        reason="only 25 levels in this sample; keep it for now",
+    )
+    manual = next(p for p in updated.transforms if p.id.startswith("U"))
+
+    dsa.approve_transforms(session, drop=(drop_proposal.id,))
+    assert manual.id in {p.id for p in session.transforms}
+    assert drop_proposal.id not in {p.id for p in session.transforms}
+
+    matrix = dsa.preprocessor(session).fit_transform(session.df[["code"]], session.df["y"])
+    assert matrix.shape[1] > 1  # one-hot encoded, not dropped
+
+
+def test_propose_manual_transform_rejects_the_target_column(session, messy):
+    loaded(session, messy, target="churn")
+    dsa.propose_repairs(session)
+    dsa.approve_repairs(session)
+    dsa.propose_transforms(session)
+    with pytest.raises(ValueError, match="target column"):
+        dsa.propose_manual_transform(session, kind="scale_numeric", columns=("churn",))
+
+
+def test_propose_manual_transform_honors_custom_params(session, messy):
+    """impute_numeric defaults to the median (see dsa.clean.detect). Reject that detected
+    proposal and add a manual replacement asking for the mean instead -- the reject-then-
+    add composition the plan relies on in place of a separate 'modify' function."""
+    loaded(session, messy, target="churn")
+    dsa.propose_repairs(session)
+    dsa.approve_repairs(session)
+    plan = dsa.propose_transforms(session)
+    auto_impute = next(p for p in plan.transforms if p.kind == "impute_numeric")
+    assert auto_impute.params["strategy"] == "median"
+
+    updated = dsa.propose_manual_transform(
+        session, kind="impute_numeric", columns=auto_impute.columns, strategy="mean"
+    )
+    manual_impute = next(p for p in updated.transforms if p.id.startswith("U"))
+    assert manual_impute.params == {"strategy": "mean"}
+
+    dsa.approve_transforms(session, drop=(auto_impute.id,))
+    assert manual_impute.id in {p.id for p in session.transforms}
+    assert auto_impute.id not in {p.id for p in session.transforms}
+
+    from sklearn.impute import SimpleImputer
+
+    imputer = SimpleImputer(**manual_impute.params)
+    imputer.fit(session.df[list(manual_impute.columns)])
+    np.testing.assert_allclose(
+        imputer.statistics_, session.df[list(manual_impute.columns)].mean().to_numpy()
+    )
+
+
+def test_propose_manual_transform_rejects_unknown_params(session, messy):
+    loaded(session, messy, target="churn")
+    dsa.propose_repairs(session)
+    dsa.approve_repairs(session)
+    dsa.propose_transforms(session)
+    with pytest.raises(ValueError, match="does not accept parameter"):
+        dsa.propose_manual_transform(session, kind="scale_numeric", columns=("income",), strategy="mean")
+
+
 # --- the preprocessing pipeline ------------------------------------------------------
 
 def test_preprocessor_is_unfitted(session, messy):

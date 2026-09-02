@@ -22,6 +22,19 @@ from dsa.clean.plan import Proposal
 PASSTHROUGH = "passthrough"
 DROPPED = "dropped"
 
+# The complete set of transform kinds this module knows how to compose into a pipeline.
+# Exposed so that dsa.clean.proposals.propose_manual_transform can validate a
+# human-specified kind against the same vocabulary the detectors use, rather than a
+# second hardcoded copy.
+TRANSFORM_KINDS = (
+    "impute_numeric",
+    "impute_categorical",
+    "scale_numeric",
+    "onehot_categorical",
+    "drop_high_cardinality",
+    "extract_datetime_parts",
+)
+
 # The calendar parts extracted from every datetime column, in output-column order.
 _DATETIME_PARTS = ("year", "month", "day", "dayofweek")
 

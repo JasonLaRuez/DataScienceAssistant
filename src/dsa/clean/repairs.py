@@ -74,6 +74,11 @@ _BUILDERS: dict[str, Callable[[Proposal], Repair]] = {
     "drop_rows_missing_target": _drop_rows_missing_target,
 }
 
+# The complete set of repair kinds this module knows how to execute. Exposed so that
+# dsa.clean.proposals.propose_manual_repair can validate a human-specified kind against
+# the same vocabulary the detectors use, rather than a second hardcoded copy.
+REPAIR_KINDS = tuple(_BUILDERS)
+
 
 def build_repair(proposal: Proposal) -> tuple[str, Repair]:
     """Return a ``(name, callable)`` pair for an approved repair proposal.

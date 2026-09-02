@@ -12,17 +12,19 @@ Split by responsibility so each part can be reviewed on its own:
 
 from dsa.clean.detect import detect_repairs, detect_transforms
 from dsa.clean.plan import Proposal, RepairPlan, TransformPlan
-from dsa.clean.pipeline import build_preprocessor, column_treatments
+from dsa.clean.pipeline import TRANSFORM_KINDS, build_preprocessor, column_treatments
 from dsa.clean.proposals import (
     approve_repairs,
     approve_transforms,
     feature_columns,
     preprocessor,
+    propose_manual_repair,
+    propose_manual_transform,
     propose_repairs,
     propose_transforms,
     treatments,
 )
-from dsa.clean.repairs import build_repair
+from dsa.clean.repairs import REPAIR_KINDS, build_repair
 
 __all__ = [
     "RepairPlan",
@@ -32,12 +34,16 @@ __all__ = [
     "detect_transforms",
     "propose_repairs",
     "approve_repairs",
+    "propose_manual_repair",
     "propose_transforms",
     "approve_transforms",
+    "propose_manual_transform",
     "preprocessor",
     "treatments",
     "feature_columns",
     "build_preprocessor",
     "build_repair",
     "column_treatments",
+    "REPAIR_KINDS",
+    "TRANSFORM_KINDS",
 ]
