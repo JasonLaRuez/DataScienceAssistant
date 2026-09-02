@@ -8,22 +8,25 @@ Split by responsibility, mirroring dsa.clean:
   logs each figure, and manages the "figures" review gate.
 """
 
-from dsa.viz.analyze import AnalysisSummary, analyze, plot_pair
+from dsa.viz.analyze import AnalysisSummary, analyze, plot_pair, plot_scatter_matrix
 from dsa.viz.figures import (
     DEFAULT_MAX_CATEGORIES,
     categorical_bar_charts,
     correlation_heatmap,
     numeric_box_plots,
     pair_plot,
+    scatter_matrix,
 )
 
 __all__ = [
     "AnalysisSummary",
     "analyze",
     "plot_pair",
+    "plot_scatter_matrix",
     "categorical_bar_charts",
     "numeric_box_plots",
     "correlation_heatmap",
     "pair_plot",
+    "scatter_matrix",
     "DEFAULT_MAX_CATEGORIES",
 ]

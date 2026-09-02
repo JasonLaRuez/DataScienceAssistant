@@ -143,6 +143,47 @@ def correlation_heatmap(frame: pd.DataFrame, profile: DataProfile) -> Figure | N
     return fig
 
 
+def scatter_matrix(
+    frame: pd.DataFrame, profile: DataProfile, columns: tuple[str, ...] | None = None
+) -> Figure:
+    """A grid of pairwise scatter plots over numeric columns, for use when the feature
+    count is small enough that the whole grid stays legible.
+
+    ``columns`` defaults to every ``NUMERIC``-kind column in ``profile``; pass an
+    explicit subset to plot fewer than that. Feature names appear only on the left
+    column and bottom row (``sharex``/``sharey`` plus ``label_outer`` suppress the
+    redundant interior tick labels a naive grid would otherwise repeat on every cell).
+    The diagonal is left empty -- a feature scattered against itself adds nothing.
+    """
+    if columns is None:
+        columns = tuple(c.name for c in profile.columns if c.kind == NUMERIC)
+    if len(columns) < 2:
+        raise ValueError(f"scatter_matrix needs at least 2 numeric columns; got {columns}")
+
+    n = len(columns)
+    fig, axes = plt.subplots(n, n, figsize=(2.2 * n, 2.2 * n), sharex="col", sharey="row")
+
+    for row, y in enumerate(columns):
+        for col, x in enumerate(columns):
+            ax = axes[row, col]
+            if row != col:
+                ax.scatter(frame[x], frame[y], alpha=0.6, color=_COLOR)
+            # label_outer() runs even on the (data-free) diagonal cells: the top-left
+            # and bottom-right diagonal cells are also the grid's edge cells, so they
+            # still need their outer tick labels shown for the left-column/bottom-row
+            # labeling below to land anywhere.
+            ax.label_outer()
+
+    for col, x in enumerate(columns):
+        axes[-1, col].set_xlabel(x)
+    for row, y in enumerate(columns):
+        axes[row, 0].set_ylabel(y)
+
+    fig.suptitle("pairwise feature scatter matrix")
+    fig.tight_layout()
+    return fig
+
+
 def pair_plot(frame: pd.DataFrame, profile: DataProfile, x: str, y: str) -> Figure:
     """Plot ``x`` against ``y``, dispatched on each column's kind.
 

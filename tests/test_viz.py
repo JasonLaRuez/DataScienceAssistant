@@ -14,7 +14,13 @@ import pytest
 
 import dsa
 from dsa.profile import profile_frame
-from dsa.viz.figures import categorical_bar_charts, correlation_heatmap, numeric_box_plots, pair_plot
+from dsa.viz.figures import (
+    categorical_bar_charts,
+    correlation_heatmap,
+    numeric_box_plots,
+    pair_plot,
+    scatter_matrix,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -81,6 +87,51 @@ def test_pair_plot_rejects_datetime():
     frame = pd.DataFrame({"d": pd.date_range("2024-01-01", periods=3), "n": [1.0, 2.0, 3.0]})
     with pytest.raises(ValueError, match="does not support"):
         pair_plot(frame, profile_frame(frame), "d", "n")
+
+
+def test_scatter_matrix_produces_an_n_by_n_grid_with_an_empty_diagonal():
+    frame = pd.DataFrame({"a": [1.0, 2.0, 3.0], "b": [3.0, 2.0, 1.0], "c": [1.0, 1.0, 2.0]})
+    fig = scatter_matrix(frame, profile_frame(frame))
+
+    axes = fig.axes
+    assert len(axes) == 9  # 3x3
+
+    grid = np.array(axes).reshape(3, 3)
+    for i in range(3):
+        assert len(grid[i, i].collections) == 0  # diagonal: no scatter drawn
+    for i in range(3):
+        for j in range(3):
+            if i != j:
+                assert len(grid[i, j].collections) == 1
+
+
+def test_scatter_matrix_labels_only_the_left_column_and_bottom_row():
+    frame = pd.DataFrame({"a": [1.0, 2.0, 3.0], "b": [3.0, 2.0, 1.0], "c": [1.0, 1.0, 2.0]})
+    fig = scatter_matrix(frame, profile_frame(frame))
+    grid = np.array(fig.axes).reshape(3, 3)
+
+    for row in range(3):
+        assert grid[row, 0].get_ylabel() == ["a", "b", "c"][row]
+        for col in range(1, 3):
+            assert grid[row, col].get_ylabel() == ""
+    for col in range(3):
+        assert grid[-1, col].get_xlabel() == ["a", "b", "c"][col]
+        for row in range(2):
+            assert grid[row, col].get_xlabel() == ""
+
+
+def test_scatter_matrix_honors_an_explicit_column_subset():
+    frame = pd.DataFrame({
+        "a": [1.0, 2.0, 3.0], "b": [3.0, 2.0, 1.0], "c": [1.0, 1.0, 2.0],
+    })
+    fig = scatter_matrix(frame, profile_frame(frame), columns=("a", "c"))
+    assert len(fig.axes) == 4  # 2x2
+
+
+def test_scatter_matrix_requires_at_least_two_numeric_columns():
+    frame = pd.DataFrame({"a": [1.0, 2.0, 3.0], "b": ["x", "y", "z"]})
+    with pytest.raises(ValueError, match="at least 2 numeric columns"):
+        scatter_matrix(frame, profile_frame(frame))
 
 
 def test_categorical_bar_charts_skips_high_cardinality_and_reports_it():
@@ -228,4 +279,53 @@ def test_plot_pair_does_not_close_the_figures_gate(analyzed_session):
     """Asking for more plots is not the same as finishing the review."""
     dsa.analyze(analyzed_session)
     dsa.plot_pair(analyzed_session, "age", "income")
+    assert not analyzed_session.gates["figures"].answered
+
+
+# --- dsa.plot_scatter_matrix --------------------------------------------------------------
+
+def test_plot_scatter_matrix_requires_analyze_to_have_run_first(analyzed_session):
+    with pytest.raises(KeyError, match="no gate named"):
+        dsa.plot_scatter_matrix(analyzed_session)
+
+
+def test_plot_scatter_matrix_after_the_figures_gate_is_closed_is_rejected(analyzed_session):
+    dsa.analyze(analyzed_session)
+    dsa.proceed(analyzed_session, "figures")
+    with pytest.raises(ValueError, match="already closed"):
+        dsa.plot_scatter_matrix(analyzed_session)
+
+
+def test_plot_scatter_matrix_rejects_an_unknown_column(analyzed_session):
+    dsa.analyze(analyzed_session)
+    with pytest.raises(ValueError, match="no such column"):
+        dsa.plot_scatter_matrix(analyzed_session, columns=("age", "nope"))
+
+
+def test_plot_scatter_matrix_rejects_a_non_numeric_column(analyzed_session):
+    dsa.analyze(analyzed_session)
+    with pytest.raises(ValueError, match="only supports numeric columns"):
+        dsa.plot_scatter_matrix(analyzed_session, columns=("age", "city"))
+
+
+def test_plot_scatter_matrix_saves_and_logs_the_figure(analyzed_session):
+    dsa.analyze(analyzed_session)
+    path = dsa.plot_scatter_matrix(analyzed_session)
+
+    assert path.exists()
+    assert path.name == "scatter_matrix.png"
+    assert path.parent == analyzed_session.figures_dir
+    entry = next(e for e in analyzed_session.log.entries if e.op == "viz.plot_scatter_matrix")
+    assert entry.artifacts == [str(path)]
+
+
+def test_plot_scatter_matrix_honors_an_explicit_column_subset(analyzed_session):
+    dsa.analyze(analyzed_session)
+    path = dsa.plot_scatter_matrix(analyzed_session, columns=("age", "income"))
+    assert path.exists()
+
+
+def test_plot_scatter_matrix_does_not_close_the_figures_gate(analyzed_session):
+    dsa.analyze(analyzed_session)
+    dsa.plot_scatter_matrix(analyzed_session)
     assert not analyzed_session.gates["figures"].answered

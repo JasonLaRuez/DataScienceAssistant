@@ -46,7 +46,7 @@ from dsa.io.kaggle import load_file, load_kaggle
 from dsa.profile import ColumnProfile, DataProfile, profile, profile_frame
 from dsa.runlog import RunEntry, RunLog, environment_snapshot
 from dsa.session import Session, find_project_root, new_session
-from dsa.viz import AnalysisSummary, analyze, plot_pair
+from dsa.viz import AnalysisSummary, analyze, plot_pair, plot_scatter_matrix
 
 __version__ = "0.1.0"
 
@@ -96,5 +96,6 @@ __all__ = [
     # exploratory visualization (step 3)
     "analyze",
     "plot_pair",
+    "plot_scatter_matrix",
     "AnalysisSummary",
 ]

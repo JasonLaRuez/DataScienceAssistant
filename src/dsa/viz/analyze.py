@@ -13,7 +13,7 @@ from pathlib import Path
 from matplotlib.figure import Figure
 
 from dsa.gates import REVIEW, GateRequired, open_gate, revise
-from dsa.profile import profile_frame
+from dsa.profile import NUMERIC, profile_frame
 from dsa.session import Session
 from dsa.viz.figures import (
     DEFAULT_MAX_CATEGORIES,
@@ -21,6 +21,7 @@ from dsa.viz.figures import (
     correlation_heatmap,
     numeric_box_plots,
     pair_plot,
+    scatter_matrix,
 )
 
 STEP = 3
@@ -136,6 +137,41 @@ def plot_pair(session: Session, x: str, y: str, reason: str = "") -> Path:
     with session.log.record(STEP, "viz.plot_pair", {"x": x, "y": y}, session.df.shape) as rec:
         figure = pair_plot(session.df, profile, x, y)
         path = _save(session, f"pair_{x}_vs_{y}", figure)
+        rec.artifacts = [str(path)]
+
+    return path
+
+
+def plot_scatter_matrix(session: Session, columns: tuple[str, ...] | None = None, reason: str = "") -> Path:
+    """Plot every pairwise scatter among numeric columns as one grid, on request.
+
+    For use when the numeric feature count is small enough that the whole grid stays
+    legible -- unlike the auto-generated batch in :func:`analyze`, there is no limit
+    here on your behalf. ``columns`` defaults to every numeric column in the working
+    frame; pass an explicit subset to plot fewer.
+
+    Requires :func:`analyze` to have been called and the "figures" gate not yet closed --
+    same reused :func:`dsa.gates.revise` guard as :func:`plot_pair`.
+    """
+    revise(session, "figures", reason or "scatter matrix")
+
+    if session.df is None:
+        raise ValueError("no data loaded; call a loader first")
+    profile = profile_frame(session.df)
+
+    if columns is not None:
+        unknown = [name for name in columns if name not in session.df.columns]
+        if unknown:
+            raise ValueError(f"no such column(s) in the working frame: {unknown}")
+        non_numeric = [name for name in columns if profile[name].kind != NUMERIC]
+        if non_numeric:
+            raise ValueError(f"scatter_matrix only supports numeric columns; not numeric: {non_numeric}")
+
+    with session.log.record(
+        STEP, "viz.plot_scatter_matrix", {"columns": list(columns) if columns else None}, session.df.shape
+    ) as rec:
+        figure = scatter_matrix(session.df, profile, columns)
+        path = _save(session, "scatter_matrix", figure)
         rec.artifacts = [str(path)]
 
     return path
