@@ -31,6 +31,10 @@ _DISCRETE_KINDS = (CATEGORICAL, BOOLEAN)
 # categories in a bar chart, so a different hue per bar would encode nothing real.
 _COLOR = sns.color_palette("colorblind")[0]
 
+# A single box has nothing to fill matplotlib's default 6.4-inch figure width -- ~30%
+# narrower than default, same default height.
+_BOX_PLOT_FIGSIZE = (4.5, 4.8)
+
 
 def categorical_bar_charts(
     frame: pd.DataFrame, profile: DataProfile, max_categories: int = DEFAULT_MAX_CATEGORIES
@@ -85,7 +89,7 @@ def numeric_box_plots(frame: pd.DataFrame, profile: DataProfile) -> list[tuple[s
         if column.kind != NUMERIC:
             continue
         values = frame[column.name].dropna()
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=_BOX_PLOT_FIGSIZE)
         sns.boxplot(y=values, color=_COLOR, ax=ax)
         ax.set_title(f"{column.name}: distribution")
         ax.set_ylabel(column.name)
