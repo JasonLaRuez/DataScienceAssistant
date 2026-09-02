@@ -37,7 +37,10 @@ from dsa.gates import (
 )
 from dsa.io import (
     CredentialsMissing,
+    DatasetMetadata,
     credential_source,
+    describe_dataset,
+    fetch_dataset_metadata,
     find_tables,
     read_table,
     table_format,
@@ -77,6 +80,9 @@ __all__ = [
     "table_format",
     "credential_source",
     "CredentialsMissing",
+    "describe_dataset",
+    "fetch_dataset_metadata",
+    "DatasetMetadata",
     # profiling and cleaning (step 2)
     "profile",
     "profile_frame",

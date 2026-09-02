@@ -195,3 +195,55 @@ def test_loading_a_second_dataset_discards_stale_repairs(authed, monkeypatch, se
 
     dsa.load_kaggle(session, "someone/titanic")
     assert session.repairs == []
+
+
+# --- dataset description ---------------------------------------------------------------
+
+class _FakeDatasetInfo:
+    def __init__(self, title: str, subtitle: str, description: str):
+        self.title = title
+        self.subtitle = subtitle
+        self.description = description
+
+
+def _stub_dataset_info(monkeypatch, title="Titanic Dataset", subtitle="Survival prediction", description="Some description."):
+    monkeypatch.setattr(
+        "dsa.io.kaggle_metadata._fetch_dataset_info",
+        lambda owner_slug, dataset_slug: _FakeDatasetInfo(title, subtitle, description),
+    )
+
+
+def test_fetch_dataset_metadata_builds_the_url_from_the_slug(monkeypatch):
+    _stub_dataset_info(monkeypatch)
+    metadata = dsa.fetch_dataset_metadata("yasserh/titanic-dataset")
+
+    assert metadata.url == "https://www.kaggle.com/datasets/yasserh/titanic-dataset"
+    assert metadata.title == "Titanic Dataset"
+
+
+def test_dataset_metadata_markdown_includes_title_link_and_description(monkeypatch):
+    _stub_dataset_info(monkeypatch, description="Some description.")
+    metadata = dsa.fetch_dataset_metadata("yasserh/titanic-dataset")
+
+    markdown = metadata._repr_markdown_()
+    assert "Titanic Dataset" in markdown
+    assert "https://www.kaggle.com/datasets/yasserh/titanic-dataset" in markdown
+    assert "Some description." in markdown
+
+
+def test_describe_dataset_requires_a_kaggle_loaded_session(session, dataset):
+    dsa.load_file(session, dataset / "train.csv")
+    with pytest.raises(ValueError, match="load_kaggle"):
+        dsa.describe_dataset(session)
+
+
+def test_describe_dataset_fetches_and_logs(authed, monkeypatch, session, dataset):
+    monkeypatch.setattr("dsa.io.kaggle.fetch", lambda slug, cache_dir: dataset)
+    dsa.load_kaggle(session, "someone/titanic")
+    _stub_dataset_info(monkeypatch, title="Titanic")
+
+    metadata = dsa.describe_dataset(session)
+
+    assert metadata.title == "Titanic"
+    entry = next(e for e in session.log.entries if e.op == "load.describe_dataset")
+    assert entry.params == {"slug": "someone/titanic"}
