@@ -168,7 +168,7 @@ def test_missingness_bar_chart_includes_only_columns_with_missing_values():
     assert set(labels) == {"a_little", "a_lot"}
 
 
-def test_missingness_bar_chart_sorts_ascending_left_to_right():
+def test_missingness_bar_chart_sorts_descending_left_to_right():
     frame = pd.DataFrame({
         "a_lot": [None, None, None, 4],
         "a_little": [1, None, 3, 4],
@@ -176,7 +176,7 @@ def test_missingness_bar_chart_sorts_ascending_left_to_right():
     })
     fig = missingness_bar_chart(frame, profile_frame(frame))
     labels = [t.get_text() for t in fig.axes[0].get_xticklabels()]
-    assert labels == ["a_little", "some", "a_lot"]  # 1, 2, 3 missing respectively
+    assert labels == ["a_lot", "some", "a_little"]  # 3, 2, 1 missing respectively
 
 
 def test_missingness_bar_chart_labels_count_and_proportion():

@@ -197,8 +197,8 @@ def plot_scatter_matrix(session: Session, columns: tuple[str, ...] | None = None
 
 
 def plot_missingness(session: Session) -> Path | None:
-    """Plot which columns have missing values and how much, sorted ascending so the
-    worst offenders read off the right edge.
+    """Plot which columns have missing values and how much, sorted descending so the
+    worst offenders read off the left edge.
 
     Unlike every other function in this module, this has no gate to wait on -- it's a
     diagnostic view useful before repairs are even proposed, to help decide which ones

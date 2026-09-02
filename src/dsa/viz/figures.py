@@ -78,8 +78,8 @@ def categorical_bar_charts(
 
 
 def missingness_bar_chart(frame: pd.DataFrame, profile: DataProfile) -> Figure | None:
-    """A bar chart of every column with at least one missing value, sorted ascending
-    left-to-right by how much is missing, so the worst offenders read off the right
+    """A bar chart of every column with at least one missing value, sorted descending
+    left-to-right by how much is missing, so the worst offenders read off the left
     edge. Returns ``None`` if nothing is missing anywhere.
 
     Deliberately kind-agnostic (unlike every other builder here, this needs no
@@ -88,7 +88,9 @@ def missingness_bar_chart(frame: pd.DataFrame, profile: DataProfile) -> Figure |
     ``profile`` and never touches ``frame``. Takes ``frame`` anyway to keep the same
     ``(frame, profile)`` shape as every other function in this module.
     """
-    missing = sorted((c for c in profile.columns if c.n_missing > 0), key=lambda c: c.n_missing)
+    missing = sorted(
+        (c for c in profile.columns if c.n_missing > 0), key=lambda c: c.n_missing, reverse=True
+    )
     if not missing:
         return None
 
