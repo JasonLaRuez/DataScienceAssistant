@@ -151,9 +151,9 @@ def categorical_association_heatmap(frame: pd.DataFrame, profile: DataProfile) -
     Returns ``None`` if fewer than two categorical/boolean columns exist. Cramer's V
     ranges over ``[0, 1]`` with no negative direction (unlike Pearson correlation), so
     this uses a sequential colormap rather than ``correlation_heatmap``'s diverging one.
-    Not bias-corrected: plain Cramer's V is slightly biased upward on small samples or
-    sparse contingency tables, which is an acceptable simplification for exploratory use
-    but worth knowing before reading too much into a borderline value.
+    Bias-corrected (Bergsma 2013): plain Cramer's V is biased upward for high-cardinality
+    columns relative to the sample size -- visible in practice on a real dataset's own
+    high-cardinality columns, not just a theoretical concern.
     """
     columns = [c.name for c in profile.columns if c.kind in _DISCRETE_KINDS]
     if len(columns) < 2:
@@ -177,12 +177,19 @@ def categorical_association_heatmap(frame: pd.DataFrame, profile: DataProfile) -
 
 
 def _cramers_v(x: pd.Series, y: pd.Series) -> float:
-    """Cramer's V association between two categorical/boolean series, in [0, 1]."""
+    """Bias-corrected Cramer's V association between two categorical/boolean series.
+
+    Bergsma's (2013) correction: subtracts off the contingency table's own degrees of
+    freedom before taking the square root, and shrinks the effective row/column counts
+    the same way -- both terms trend to exactly cancel out chance association as sample
+    size shrinks relative to the number of categories, which plain Cramer's V does not.
+    Clamped at 0 (the correction can otherwise go slightly negative for a genuinely
+    independent pair).
+    """
     table = pd.crosstab(x, y).to_numpy(dtype=float)
     r, c = table.shape
-    min_dim = min(r - 1, c - 1)
     n = table.sum()
-    if min_dim <= 0 or n == 0:
+    if r < 2 or c < 2 or n <= 1:
         return float("nan")
 
     row_totals = table.sum(axis=1, keepdims=True)
@@ -191,7 +198,15 @@ def _cramers_v(x: pd.Series, y: pd.Series) -> float:
     with np.errstate(divide="ignore", invalid="ignore"):
         chi2 = np.nansum(np.where(expected > 0, (table - expected) ** 2 / expected, 0.0))
 
-    return float(np.sqrt(chi2 / (n * min_dim)))
+    phi2 = chi2 / n
+    phi2_corrected = max(0.0, phi2 - (r - 1) * (c - 1) / (n - 1))
+    r_corrected = r - (r - 1) ** 2 / (n - 1)
+    c_corrected = c - (c - 1) ** 2 / (n - 1)
+    denominator = min(r_corrected - 1, c_corrected - 1)
+    if denominator <= 0:
+        return 0.0
+
+    return float(np.sqrt(phi2_corrected / denominator))
 
 
 def scatter_matrix(

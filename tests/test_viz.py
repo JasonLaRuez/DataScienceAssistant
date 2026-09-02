@@ -192,13 +192,16 @@ def test_categorical_association_heatmap_needs_at_least_two_discrete_columns():
 
 
 def test_categorical_association_heatmap_computes_cramers_v_correctly():
-    """a determines b exactly -> perfect association (V=1) off the diagonal too."""
+    """a determines b exactly -> perfect association (V=1) off the diagonal too. The
+    bias correction still gives exactly 1.0 here (verified by hand): it only pulls down
+    associations inflated by chance, not a genuinely perfect one."""
     perfect = pd.DataFrame({"a": ["x", "x", "y", "y"], "b": ["p", "p", "q", "q"]})
     fig = categorical_association_heatmap(perfect, profile_frame(perfect))
     values = np.asarray(fig.axes[0].collections[0].get_array()).reshape(2, 2)
     np.testing.assert_allclose(values, [[1.0, 1.0], [1.0, 1.0]], atol=1e-9)
 
-    # A perfectly balanced 2x2 contingency table -- chi-squared is exactly 0.
+    # A perfectly balanced 2x2 contingency table -- chi-squared is exactly 0, and stays
+    # exactly 0 after correction (verified by hand: phi2_corrected clamps to 0 too).
     independent = pd.DataFrame({
         "a": ["x", "x", "y", "y", "x", "x", "y", "y"],
         "b": ["p", "q", "p", "q", "p", "q", "p", "q"],
@@ -206,6 +209,35 @@ def test_categorical_association_heatmap_computes_cramers_v_correctly():
     fig2 = categorical_association_heatmap(independent, profile_frame(independent))
     values2 = np.asarray(fig2.axes[0].collections[0].get_array()).reshape(2, 2)
     np.testing.assert_allclose(values2, [[1.0, 0.0], [0.0, 1.0]], atol=1e-9)
+
+
+def test_categorical_association_heatmap_bias_correction_reduces_high_cardinality_inflation():
+    """Plain Cramer's V is inflated by chance for high-cardinality columns relative to a
+    small sample -- exactly what showed up on a real dataset's own high-cardinality
+    columns. The bias-corrected version (what the production code now uses) must come
+    out lower than what the plain formula would have given for the same sparse table."""
+    rng = np.random.default_rng(0)
+    n = 30
+    frame = pd.DataFrame({
+        "a": rng.choice([f"a{i}" for i in range(10)], n),
+        "b": rng.choice([f"b{i}" for i in range(10)], n),
+    })
+
+    def plain_cramers_v(x: pd.Series, y: pd.Series) -> float:
+        table = pd.crosstab(x, y).to_numpy(dtype=float)
+        r, c = table.shape
+        total = table.sum()
+        row_totals = table.sum(axis=1, keepdims=True)
+        col_totals = table.sum(axis=0, keepdims=True)
+        expected = row_totals @ col_totals / total
+        chi2 = np.nansum(np.where(expected > 0, (table - expected) ** 2 / expected, 0.0))
+        return float(np.sqrt(chi2 / (total * min(r - 1, c - 1))))
+
+    fig = categorical_association_heatmap(frame, profile_frame(frame))
+    corrected = np.asarray(fig.axes[0].collections[0].get_array()).reshape(2, 2)[0, 1]
+    plain = plain_cramers_v(frame["a"], frame["b"])
+
+    assert corrected < plain
 
 
 # --- dsa.analyze -------------------------------------------------------------------------
