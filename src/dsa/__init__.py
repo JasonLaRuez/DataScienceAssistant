@@ -46,6 +46,7 @@ from dsa.io.kaggle import load_file, load_kaggle
 from dsa.profile import ColumnProfile, DataProfile, profile, profile_frame
 from dsa.runlog import RunEntry, RunLog, environment_snapshot
 from dsa.session import Session, find_project_root, new_session
+from dsa.viz import AnalysisSummary, analyze, plot_pair
 
 __version__ = "0.1.0"
 
@@ -92,4 +93,8 @@ __all__ = [
     "RepairPlan",
     "TransformPlan",
     "Proposal",
+    # exploratory visualization (step 3)
+    "analyze",
+    "plot_pair",
+    "AnalysisSummary",
 ]
