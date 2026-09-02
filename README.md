@@ -101,9 +101,21 @@ from the run log.
 
 ## Status
 
-Steps 1 (loading) and 2 (profiling, and the propose/approve cleaning plan) are
-implemented, along with the Session / RunLog / gate spine. The original step 2 build is
-still available at tag `v0.1-step2-clean` for reference; the current version was rebuilt
-from an approved plan per CLAUDE.md rule 10.
+Steps 1-3 are implemented, along with the Session / RunLog / gate spine:
+
+- **Load** - `dsa.load_kaggle`/`dsa.load_file`, plus `dsa.describe_dataset` for the
+  source dataset's own title/description and a link back to its Kaggle page.
+- **Clean** - profiling and a two-phase propose/approve cleaning plan (repairs, then
+  transforms), with manual overrides (`dsa.propose_manual_repair`/
+  `dsa.propose_manual_transform`) for judgment calls no detector should make on its own,
+  such as relabeling a column's kind.
+- **Analyze** - `dsa.viz`: bar charts, box plots, a correlation heatmap, and a
+  categorical-association heatmap generated automatically after cleaning, plus
+  on-request pairwise plots (`dsa.plot_pair`, `dsa.plot_scatter_matrix`) and a
+  missingness chart usable any time after loading.
+
+Tags `v0.1-step1-load`, `v0.1-step2-clean-v2`, and `v0.1-step3-analyze` mark each step's
+completion; `v0.1-step2-clean` is the original step-2 build, kept for reference after a
+rebuild from an approved plan per CLAUDE.md rule 10.
 
 Development rules and architecture notes are in [CLAUDE.md](CLAUDE.md).
