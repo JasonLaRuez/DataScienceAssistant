@@ -11,6 +11,7 @@ Split by responsibility, mirroring dsa.clean:
 from dsa.viz.analyze import AnalysisSummary, analyze, plot_pair, plot_scatter_matrix
 from dsa.viz.figures import (
     DEFAULT_MAX_CATEGORIES,
+    categorical_association_heatmap,
     categorical_bar_charts,
     correlation_heatmap,
     numeric_box_plots,
@@ -26,6 +27,7 @@ __all__ = [
     "categorical_bar_charts",
     "numeric_box_plots",
     "correlation_heatmap",
+    "categorical_association_heatmap",
     "pair_plot",
     "scatter_matrix",
     "DEFAULT_MAX_CATEGORIES",

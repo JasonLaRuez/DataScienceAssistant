@@ -15,6 +15,7 @@ import pytest
 import dsa
 from dsa.profile import profile_frame
 from dsa.viz.figures import (
+    categorical_association_heatmap,
     categorical_bar_charts,
     correlation_heatmap,
     numeric_box_plots,
@@ -182,6 +183,31 @@ def test_correlation_heatmap_needs_at_least_two_numeric_columns():
     assert correlation_heatmap(two_numeric, profile_frame(two_numeric)) is not None
 
 
+def test_categorical_association_heatmap_needs_at_least_two_discrete_columns():
+    one_discrete = pd.DataFrame({"a": ["x", "y", "z"], "b": [1.0, 2.0, 3.0]})
+    assert categorical_association_heatmap(one_discrete, profile_frame(one_discrete)) is None
+
+    two_discrete = pd.DataFrame({"a": ["x", "y", "x"], "b": ["p", "q", "p"]})
+    assert categorical_association_heatmap(two_discrete, profile_frame(two_discrete)) is not None
+
+
+def test_categorical_association_heatmap_computes_cramers_v_correctly():
+    """a determines b exactly -> perfect association (V=1) off the diagonal too."""
+    perfect = pd.DataFrame({"a": ["x", "x", "y", "y"], "b": ["p", "p", "q", "q"]})
+    fig = categorical_association_heatmap(perfect, profile_frame(perfect))
+    values = np.asarray(fig.axes[0].collections[0].get_array()).reshape(2, 2)
+    np.testing.assert_allclose(values, [[1.0, 1.0], [1.0, 1.0]], atol=1e-9)
+
+    # A perfectly balanced 2x2 contingency table -- chi-squared is exactly 0.
+    independent = pd.DataFrame({
+        "a": ["x", "x", "y", "y", "x", "x", "y", "y"],
+        "b": ["p", "q", "p", "q", "p", "q", "p", "q"],
+    })
+    fig2 = categorical_association_heatmap(independent, profile_frame(independent))
+    values2 = np.asarray(fig2.axes[0].collections[0].get_array()).reshape(2, 2)
+    np.testing.assert_allclose(values2, [[1.0, 0.0], [0.0, 1.0]], atol=1e-9)
+
+
 # --- dsa.analyze -------------------------------------------------------------------------
 
 def test_analyze_requires_transforms_to_be_approved(session):
@@ -225,9 +251,36 @@ def test_analyze_skips_correlation_with_fewer_than_two_numeric_columns(session):
     assert summary.correlation is None
 
 
+def test_analyze_makes_one_categorical_association_heatmap(analyzed_session):
+    """analyzed_session has 3 discrete columns (city, many_groups, active) -- enough for
+    the heatmap even though many_groups is excluded from the bar-chart batch."""
+    summary = dsa.analyze(analyzed_session)
+    assert summary.categorical_association is not None
+    assert summary.categorical_association.exists()
+
+
+def test_analyze_skips_categorical_association_with_fewer_than_two_discrete_columns(session):
+    frame = pd.DataFrame({"a": [1.0, 2.0, 3.0, 4.0], "y": [0, 1, 0, 1]})
+    session.raw = frame
+    session.rebuild()
+    session.target = "y"
+    dsa.propose_repairs(session)
+    dsa.approve_repairs(session)
+    dsa.propose_transforms(session)
+    dsa.approve_transforms(session)
+
+    summary = dsa.analyze(session)
+    assert summary.categorical_association is None
+
+
 def test_analyze_saves_every_figure_and_logs_it(analyzed_session):
     summary = dsa.analyze(analyzed_session)
-    all_paths = [*summary.bar_charts, *summary.box_plots, *([summary.correlation] if summary.correlation else [])]
+    all_paths = [
+        *summary.bar_charts,
+        *summary.box_plots,
+        *([summary.correlation] if summary.correlation else []),
+        *([summary.categorical_association] if summary.categorical_association else []),
+    ]
     assert all_paths
     for path in all_paths:
         assert path.exists()

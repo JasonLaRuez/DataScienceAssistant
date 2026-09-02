@@ -17,6 +17,7 @@ from dsa.profile import NUMERIC, profile_frame
 from dsa.session import Session
 from dsa.viz.figures import (
     DEFAULT_MAX_CATEGORIES,
+    categorical_association_heatmap,
     categorical_bar_charts,
     correlation_heatmap,
     numeric_box_plots,
@@ -35,15 +36,21 @@ class AnalysisSummary:
     bar_charts: tuple[Path, ...]
     box_plots: tuple[Path, ...]
     correlation: Path | None
+    categorical_association: Path | None
     skipped_categorical: tuple[str, ...]
 
     def describe(self) -> str:
         header = (
             f"{len(self.bar_charts)} bar chart(s), {len(self.box_plots)} box plot(s), "
             + (
-                "1 correlation heatmap"
+                "1 correlation heatmap, "
                 if self.correlation
-                else "no correlation heatmap (fewer than 2 numeric columns)"
+                else "no correlation heatmap (fewer than 2 numeric columns), "
+            )
+            + (
+                "1 categorical association heatmap"
+                if self.categorical_association
+                else "no categorical association heatmap (fewer than 2 categorical/boolean columns)"
             )
         )
         lines = [header]
@@ -61,8 +68,10 @@ def analyze(session: Session, max_categories: int = DEFAULT_MAX_CATEGORIES) -> A
     """Generate the initial exploratory figure set (step 3).
 
     Bar charts for low-cardinality categorical/boolean columns, box plots for every
-    numeric column, and one feature-feature correlation heatmap -- each linear in
-    feature count, unlike the pairwise plots :func:`plot_pair` makes on request.
+    numeric column, one feature-feature correlation heatmap, and one categorical
+    association (Cramer's V) heatmap -- each a single artifact regardless of feature
+    count, unlike the pairwise plots :func:`plot_pair`/:func:`plot_scatter_matrix` make
+    on request.
 
     Requires repairs and transforms to already be approved: the plots are drawn from
     ``session.df`` in its natural units, and the approval check is only a "step 2 is
@@ -85,21 +94,30 @@ def analyze(session: Session, max_categories: int = DEFAULT_MAX_CATEGORIES) -> A
         bar_figures, skipped = categorical_bar_charts(session.df, profile, max_categories)
         box_figures = numeric_box_plots(session.df, profile)
         corr_figure = correlation_heatmap(session.df, profile)
+        assoc_figure = categorical_association_heatmap(session.df, profile)
 
         bar_paths = tuple(_save(session, f"bar_{name}", fig) for name, fig in bar_figures)
         box_paths = tuple(_save(session, f"box_{name}", fig) for name, fig in box_figures)
         corr_path = _save(session, "correlation_matrix", corr_figure) if corr_figure is not None else None
+        assoc_path = (
+            _save(session, "categorical_association", assoc_figure) if assoc_figure is not None else None
+        )
 
-        rec.artifacts = [str(p) for p in (*bar_paths, *box_paths, *([corr_path] if corr_path else []))]
+        rec.artifacts = [
+            str(p)
+            for p in (*bar_paths, *box_paths, *([corr_path] if corr_path else []), *([assoc_path] if assoc_path else []))
+        ]
         rec.notes = (
             f"{len(bar_paths)} bar charts, {len(box_paths)} box plots, "
-            f"{1 if corr_path else 0} correlation heatmap"
+            f"{1 if corr_path else 0} correlation heatmap, "
+            f"{1 if assoc_path else 0} categorical association heatmap"
         )
 
     summary = AnalysisSummary(
         bar_charts=bar_paths,
         box_plots=box_paths,
         correlation=corr_path,
+        categorical_association=assoc_path,
         skipped_categorical=tuple(skipped),
     )
 
