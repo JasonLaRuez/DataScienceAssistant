@@ -15,6 +15,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from dsa.profile import BOOLEAN, CATEGORICAL, NUMERIC, DataProfile
@@ -51,8 +52,17 @@ def categorical_bar_charts(
             continue
 
         counts = frame[column.name].value_counts()
+        total = int(counts.sum())
         fig, ax = plt.subplots()
-        ax.bar(counts.index.astype(str), counts.to_numpy(), color=_COLOR)
+        bars = ax.bar(counts.index.astype(str), counts.to_numpy(), color=_COLOR)
+        ax.bar_label(
+            bars,
+            labels=[f"{c:,}\n({c / total:.1%})" for c in counts.to_numpy()],
+            padding=3,
+        )
+        # bar_label draws above the bar; without headroom the top label clips against
+        # the axes frame.
+        ax.margins(y=0.15)
         ax.set_title(f"{column.name}: value counts")
         ax.set_xlabel(column.name)
         ax.set_ylabel("count")
@@ -63,20 +73,50 @@ def categorical_bar_charts(
 
 
 def numeric_box_plots(frame: pd.DataFrame, profile: DataProfile) -> list[tuple[str, Figure]]:
-    """One box-and-whisker plot per numeric column, to surface outliers."""
+    """One box-and-whisker plot per numeric column, to surface outliers.
+
+    Annotated with the five-number summary (min, Q1, median, Q3, max) plus the mean,
+    since a box plot's whiskers and quartile lines show these visually but don't give
+    the reader the exact values.
+    """
     figures: list[tuple[str, Figure]] = []
 
     for column in profile.columns:
         if column.kind != NUMERIC:
             continue
+        values = frame[column.name].dropna()
         fig, ax = plt.subplots()
-        sns.boxplot(y=frame[column.name].dropna(), color=_COLOR, ax=ax)
+        sns.boxplot(y=values, color=_COLOR, ax=ax)
         ax.set_title(f"{column.name}: distribution")
         ax.set_ylabel(column.name)
+        _annotate_five_number_summary(ax, values)
         fig.tight_layout()
         figures.append((column.name, fig))
 
     return figures
+
+
+def _annotate_five_number_summary(ax: Axes, values: pd.Series) -> None:
+    """Draw a min/Q1/median/Q3/max/mean text box in a plot's top-right corner."""
+    summary = (
+        f"min:    {values.min():.2f}\n"
+        f"Q1:     {values.quantile(0.25):.2f}\n"
+        f"median: {values.median():.2f}\n"
+        f"Q3:     {values.quantile(0.75):.2f}\n"
+        f"max:    {values.max():.2f}\n"
+        f"mean:   {values.mean():.2f}"
+    )
+    ax.text(
+        0.97,
+        0.97,
+        summary,
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=9,
+        family="monospace",
+        bbox={"boxstyle": "round", "facecolor": "white", "edgecolor": "gray", "alpha": 0.85},
+    )
 
 
 def correlation_heatmap(frame: pd.DataFrame, profile: DataProfile) -> Figure | None:

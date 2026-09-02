@@ -95,10 +95,32 @@ def test_categorical_bar_charts_skips_high_cardinality_and_reports_it():
     assert skipped == ["high"]
 
 
+def test_categorical_bar_charts_label_each_bar_with_count_and_proportion():
+    frame = pd.DataFrame({"cat": ["a", "a", "a", "b"]})  # a: 3 (75%), b: 1 (25%)
+    figures, _ = categorical_bar_charts(frame, profile_frame(frame))
+    _, fig = figures[0]
+    labels = {t.get_text() for t in fig.axes[0].texts}
+    assert "3\n(75.0%)" in labels
+    assert "1\n(25.0%)" in labels
+
+
 def test_numeric_box_plots_covers_every_numeric_column():
     frame = pd.DataFrame({"a": [1.0, 2.0, 3.0], "b": [3.0, 2.0, 1.0], "c": ["x", "y", "z"]})
     figures = numeric_box_plots(frame, profile_frame(frame))
     assert {name for name, _ in figures} == {"a", "b"}
+
+
+def test_numeric_box_plots_annotate_the_five_number_summary_and_mean():
+    frame = pd.DataFrame({"a": [1.0, 2.0, 3.0, 4.0, 5.0]})
+    figures = numeric_box_plots(frame, profile_frame(frame))
+    _, fig = figures[0]
+    text = fig.axes[0].texts[0].get_text()
+    assert "min:" in text and "1.00" in text
+    assert "Q1:" in text
+    assert "median:" in text and "3.00" in text
+    assert "Q3:" in text
+    assert "max:" in text and "5.00" in text
+    assert "mean:" in text and "3.00" in text
 
 
 def test_correlation_heatmap_needs_at_least_two_numeric_columns():
