@@ -55,6 +55,22 @@ def _coerce_datetime(proposal: Proposal) -> Repair:
     return repair
 
 
+def _coerce_categorical(proposal: Proposal) -> Repair:
+    """Relabel a column as categorical regardless of its current dtype -- e.g. a 0/1
+    int column that is really a flag, not a magnitude. Manual-only (see
+    dsa.clean.proposals.propose_manual_repair): whether a low-cardinality numeric column
+    is "really" categorical is a domain judgment, not something a detector should guess.
+    """
+    column = proposal.params["column"]
+
+    def repair(frame: pd.DataFrame) -> pd.DataFrame:
+        if column not in frame.columns:
+            return frame
+        return frame.assign(**{column: frame[column].astype("category")})
+
+    return repair
+
+
 def _drop_rows_missing_target(proposal: Proposal) -> Repair:
     column = proposal.params["column"]
 
@@ -71,6 +87,7 @@ _BUILDERS: dict[str, Callable[[Proposal], Repair]] = {
     "drop_columns": _drop_columns,
     "coerce_numeric": _coerce_numeric,
     "coerce_datetime": _coerce_datetime,
+    "coerce_categorical": _coerce_categorical,
     "drop_rows_missing_target": _drop_rows_missing_target,
 }
 

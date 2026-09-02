@@ -18,7 +18,7 @@ import dsa
 from dsa.clean.detect import detect_repairs, detect_transforms
 from dsa.clean.pipeline import DatetimeFeaturizer
 from dsa.clean.repairs import build_repair
-from dsa.profile import profile_frame
+from dsa.profile import CATEGORICAL, column_kind, profile_frame
 
 
 @pytest.fixture
@@ -368,6 +368,33 @@ def test_propose_manual_repair_rejects_the_wrong_arity(session, messy):
         dsa.propose_manual_repair(session, kind="drop_duplicate_rows", columns=("city",))
     with pytest.raises(ValueError, match="exactly one column"):
         dsa.propose_manual_repair(session, kind="coerce_numeric", columns=("city", "income"))
+
+
+def test_propose_manual_repair_coerce_categorical_relabels_the_column(session, messy):
+    """'churn' is a 0/1 int column -- exactly the Survived-style case this exists for:
+    numeric by dtype, but really a flag that should be treated as categorical."""
+    loaded(session, messy, target="churn")
+    dsa.propose_repairs(session)
+    assert column_kind(session.df["churn"]) != CATEGORICAL
+
+    dsa.propose_manual_repair(
+        session, kind="coerce_categorical", columns=("churn",),
+        reason="binary outcome, not a magnitude",
+    )
+    dsa.approve_repairs(session)
+
+    assert isinstance(session.df["churn"].dtype, pd.CategoricalDtype)
+    assert column_kind(session.df["churn"]) == CATEGORICAL
+    # relabeling touches only that column
+    assert session.df["income"].dtype == messy["income"].dtype
+    assert len(session.df) <= len(messy)  # only duplicate-row/identifier repairs change row count
+
+
+def test_coerce_categorical_is_never_auto_proposed(messy):
+    """Whether a low-cardinality numeric column is 'really' categorical is a domain
+    judgment -- detect_repairs must never guess at it on its own."""
+    repairs = detect_repairs(messy, profile_frame(messy), target="churn")
+    assert not any(p.kind == "coerce_categorical" for p in repairs)
 
 
 def test_propose_manual_repair_requires_a_proposed_and_unapproved_plan(session, messy):

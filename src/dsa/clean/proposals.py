@@ -306,7 +306,7 @@ def _repair_params(kind: str, columns: tuple[str, ...]) -> dict[str, object]:
         if not columns:
             raise ValueError(f"{kind!r} requires at least one column")
         return {"columns": list(columns)}
-    if kind in ("coerce_numeric", "coerce_datetime", "drop_rows_missing_target"):
+    if kind in ("coerce_numeric", "coerce_datetime", "coerce_categorical", "drop_rows_missing_target"):
         if len(columns) != 1:
             raise ValueError(f"{kind!r} takes exactly one column; got {columns}")
         return {"column": columns[0]}
