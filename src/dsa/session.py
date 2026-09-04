@@ -74,6 +74,16 @@ class Session:
     transform_plan: TransformPlan | None = None
     transforms: tuple[Proposal, ...] = ()
 
+    # --- step 4: feature selection and engineering --------------------------------
+    # feature_df is one layer above df the same way df is one layer above raw: replaying
+    # engineered against df, not against raw, because engineering builds on the cleaned
+    # frame. selected_features/pca_components are recorded decisions, not applied data --
+    # nothing here mutates feature_df.
+    feature_df: pd.DataFrame | None = None
+    engineered: list[tuple[str, Repair]] = field(default_factory=list)
+    selected_features: tuple[str, ...] | None = None
+    pca_components: int | None = None
+
     @property
     def figures_dir(self) -> Path:
         """Where exploratory figures are written. Gitignored; only figures the write-up
@@ -90,6 +100,21 @@ class Session:
         for _name, repair in self.repairs:
             frame = repair(frame)
         self.df = frame
+        return frame
+
+    def rebuild_features(self) -> pd.DataFrame:
+        """Replay engineered features against ``df`` to produce the feature frame.
+
+        One layer above :meth:`rebuild`, same reasoning: revising an earlier engineered
+        feature and re-running never compounds, because this always starts fresh from
+        ``df`` rather than building on the previous ``feature_df``.
+        """
+        if self.df is None:
+            raise ValueError("no data loaded; call a loader first")
+        frame = self.df
+        for _name, engineer in self.engineered:
+            frame = engineer(frame)
+        self.feature_df = frame
         return frame
 
     def summary(self) -> str:

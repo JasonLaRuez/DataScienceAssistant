@@ -196,7 +196,7 @@ def categorical_association_heatmap(frame: pd.DataFrame, profile: DataProfile) -
     for i, a in enumerate(columns):
         for j in range(i + 1, n):
             b = columns[j]
-            v = _cramers_v(frame[a], frame[b])
+            v = cramers_v(frame[a], frame[b])
             associations.iloc[i, j] = v
             associations.iloc[j, i] = v
 
@@ -208,8 +208,12 @@ def categorical_association_heatmap(frame: pd.DataFrame, profile: DataProfile) -
     return fig
 
 
-def _cramers_v(x: pd.Series, y: pd.Series) -> float:
+def cramers_v(x: pd.Series, y: pd.Series) -> float:
     """Bias-corrected Cramer's V association between two categorical/boolean series.
+
+    Public (not just an internal helper of :func:`categorical_association_heatmap`) so
+    :mod:`dsa.features` can reuse the same formula for collinearity/target-association
+    detection rather than a second copy of the chi-squared math.
 
     Bergsma's (2013) correction: subtracts off the contingency table's own degrees of
     freedom before taking the square root, and shrinks the effective row/column counts

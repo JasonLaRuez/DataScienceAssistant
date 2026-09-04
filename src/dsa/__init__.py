@@ -45,6 +45,14 @@ from dsa.io import (
     read_table,
     table_format,
 )
+from dsa.features import (
+    FeatureRecommendations,
+    engineer_feature,
+    propose_features,
+    recommend_features,
+    reduce_dimensions,
+    select_features,
+)
 from dsa.io.kaggle import load_file, load_kaggle
 from dsa.profile import ColumnProfile, DataProfile, profile, profile_frame
 from dsa.runlog import RunEntry, RunLog, environment_snapshot
@@ -105,4 +113,11 @@ __all__ = [
     "plot_scatter_matrix",
     "plot_missingness",
     "AnalysisSummary",
+    # feature selection and engineering (step 4)
+    "propose_features",
+    "engineer_feature",
+    "recommend_features",
+    "select_features",
+    "reduce_dimensions",
+    "FeatureRecommendations",
 ]
